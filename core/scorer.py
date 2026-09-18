@@ -19,12 +19,11 @@ import logging
 from typing import List, Dict, Any, Optional, Callable
 
 def sanitize_utf8(text: Any) -> str:
-    """清理文字中的 Unicode Surrogates (\ud800-\udfff)，確保 100% 符合標準 UTF-8 編碼"""
+    """清理文字中的非常規編碼字元，確保符合標準 UTF-8 編碼"""
     if not text:
         return ""
     if isinstance(text, str):
-        cleaned = text.encode("utf-8", "ignore").decode("utf-8", "ignore")
-        return re.sub(r'[\ud800-\udfff]', '', cleaned)
+        return text.encode("utf-8", "ignore").decode("utf-8", "ignore")
     return str(text)
 
 from models.schema import (
