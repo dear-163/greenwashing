@@ -7,6 +7,7 @@ import os
 import sys
 import io
 import json
+import base64
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
@@ -47,6 +48,10 @@ def full_width_kw():
     return {"use_container_width": True}
 
 logo_path = os.path.join(current_dir, "assets", "logo.png")
+logo_b64 = ""
+if os.path.exists(logo_path):
+    with open(logo_path, "rb") as _f:
+        logo_b64 = base64.b64encode(_f.read()).decode("utf-8")
 
 # 頁面配置
 st.set_page_config(
@@ -55,6 +60,19 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# 注入 Apple Touch Icon、PWA 與瀏覽器快捷圖標支援（手機加到主畫面專用）
+if logo_b64:
+    st.markdown(f"""
+    <head>
+        <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,{logo_b64}">
+        <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,{logo_b64}">
+        <link rel="icon" type="image/png" sizes="16x16" href="data:image/png;base64,{logo_b64}">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-title" content="AI-GWRI">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    </head>
+    """, unsafe_allow_html=True)
 
 # 自訂高質感反漂綠 (Greenwashing Forensic) 深色主題樣式
 st.markdown("""
@@ -291,10 +309,15 @@ if "assessment_report" not in st.session_state:
     st.session_state["assessment_report"] = None
 
 # ----------------- 主畫面 Hero Banner -----------------
-st.markdown("""
+logo_img_tag = f'<img src="data:image/png;base64,{logo_b64}" style="width: 52px; height: 52px; border-radius: 12px; margin-right: 14px; vertical-align: middle; box-shadow: 0 4px 16px rgba(0,0,0,0.4);">' if logo_b64 else '🌱 '
+
+st.markdown(f"""
 <div class="hero-banner">
     <div class="hero-tag">FORENSIC ESG AUDITING • EVIDENCE-BASED ENGINE</div>
-    <h1 class="hero-title">🌱 AI-GWRI <span>企業永續報告書漂綠風險</span> 鑑識系統</h1>
+    <h1 class="hero-title" style="display: flex; align-items: center; flex-wrap: wrap;">
+        {logo_img_tag}
+        <span>AI-GWRI 企業永續報告書漂綠風險鑑識系統</span>
+    </h1>
     <p class="hero-subtitle">基於 <i>AI-based Greenwashing Risk Index</i> (Codebook v1.0) 規範實作之證據導向 28 題項全自動稽核引擎</p>
 </div>
 """, unsafe_allow_html=True)
