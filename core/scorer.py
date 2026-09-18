@@ -45,18 +45,34 @@ class AIGWRIScorer:
         model: str = "gpt-4o-mini",
         pdf_parser: Optional[PDFParser] = None
     ):
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY", "")
-        self.base_url = base_url or os.getenv("OPENAI_BASE_URL") or None
+        self.api_key = (api_key or os.getenv("OPENAI_API_KEY", "")).strip()
+        self.base_url = (base_url or os.getenv("OPENAI_BASE_URL") or "").strip() or None
         self.model = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self.pdf_parser = pdf_parser or PDFParser()
         self._client = None
+
+        # 自動偵測 Google Gemini API Key (以 AIzaSy 開頭)
+        if self.api_key.startswith("AIzaSy"):
+            if not self.base_url:
+                self.base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+            if self.model in ["gpt-4o-mini", "gpt-4o"]:
+                self.model = "gemini-2.5-flash"
+
+    @property
+    def is_gemini(self) -> bool:
+        """檢查是否使用 Google Gemini API"""
+        return bool(
+            self.api_key.startswith("AIzaSy") or 
+            (self.base_url and "googleapis.com" in self.base_url) or
+            ("gemini" in (self.model or "").lower())
+        )
 
     @property
     def client(self):
         """延遲初始化 OpenAI Client"""
         if self._client is None:
             if not self.api_key:
-                raise ValueError("未設定 OpenAI API Key，請在 .env 或介面中輸入。")
+                raise ValueError("未設定 API Key，請在 .env 或介面中輸入。")
             from openai import OpenAI
             kwargs = {"api_key": self.api_key}
             if self.base_url:
@@ -94,31 +110,34 @@ class AIGWRIScorer:
 
 {context_text}"""
 
-        try:
-            response = self.client.beta.chat.completions.parse(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format=MaterialityScreeningOutput,
-                temperature=0.0
-            )
-            return response.choices[0].message.parsed
-        except Exception as e:
-            logger.warning(f"Step 1 Structured Outputs 呼叫異常，嘗試備援解析: {str(e)}")
-            # 備援：JSON Mode 解析
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt + "\n請以符合 MaterialityScreeningOutput 結構的 JSON 格式輸出。"},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.0
-            )
-            data = json.loads(response.choices[0].message.content)
-            return MaterialityScreeningOutput.model_validate(data)
+        if not self.is_gemini:
+            try:
+                response = self.client.beta.chat.completions.parse(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    response_format=MaterialityScreeningOutput,
+                    temperature=0.0
+                )
+                return response.choices[0].message.parsed
+            except Exception as e:
+                logger.warning(f"Step 1 Structured Outputs 呼叫異常，嘗試備援解析: {str(e)}")
+
+        # JSON Mode 解析（相容 Google Gemini 與備援 OpenAI）
+        schema_desc = json.dumps(MaterialityScreeningOutput.model_json_schema(), ensure_ascii=False)
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt + f"\n請務必輸出符合以下 JSON Schema 規範的 JSON 物件：\n{schema_desc}"},
+                {"role": "user", "content": user_prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.0
+        )
+        data = json.loads(response.choices[0].message.content)
+        return MaterialityScreeningOutput.model_validate(data)
 
     def step2_score_single_dimension(
         self,
@@ -188,32 +207,35 @@ class AIGWRIScorer:
 
 請針對構面【{dimension_code}】完成 4 個題項的評分與證據擷取："""
 
-        try:
-            response = self.client.beta.chat.completions.parse(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format=DimensionBatchScoreOutput,
-                temperature=0.0
-            )
-            result = response.choices[0].message.parsed
-            return self._validate_and_sanitize_dimension_output(result, dimension_code)
-        except Exception as e:
-            logger.warning(f"構面 {dimension_code} Structured Outputs 異常: {str(e)}，切換備援解析")
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt + "\n請以符合 DimensionBatchScoreOutput 的 JSON 結構回傳。"},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.0
-            )
-            data = json.loads(response.choices[0].message.content)
-            result = DimensionBatchScoreOutput.model_validate(data)
-            return self._validate_and_sanitize_dimension_output(result, dimension_code)
+        if not self.is_gemini:
+            try:
+                response = self.client.beta.chat.completions.parse(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    response_format=DimensionBatchScoreOutput,
+                    temperature=0.0
+                )
+                result = response.choices[0].message.parsed
+                return self._validate_and_sanitize_dimension_output(result, dimension_code)
+            except Exception as e:
+                logger.warning(f"構面 {dimension_code} Structured Outputs 異常: {str(e)}，切換備援解析")
+
+        schema_desc = json.dumps(DimensionBatchScoreOutput.model_json_schema(), ensure_ascii=False)
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt + f"\n請務必輸出符合以下 JSON Schema 規範的 JSON 物件：\n{schema_desc}"},
+                {"role": "user", "content": user_prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.0
+        )
+        data = json.loads(response.choices[0].message.content)
+        result = DimensionBatchScoreOutput.model_validate(data)
+        return self._validate_and_sanitize_dimension_output(result, dimension_code)
 
     def _validate_and_sanitize_dimension_output(
         self,
