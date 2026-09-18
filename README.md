@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" width="140" alt="AI-GWRI Logo" style="border-radius: 28px; box-shadow: 0 8px 24px rgba(10,25,47,0.4);" />
+</p>
+
 # AI-GWRI 企業永續報告書漂綠風險自動鑑識評分系統
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://greenwashing-ai-gwri.streamlit.app)

@@ -46,10 +46,12 @@ def full_width_kw():
         return {"width": "stretch"}
     return {"use_container_width": True}
 
+logo_path = os.path.join(current_dir, "assets", "logo.png")
+
 # 頁面配置
 st.set_page_config(
     page_title="AI-GWRI 漂綠風險數位鑑識系統",
-    page_icon="🌿",
+    page_icon=logo_path if os.path.exists(logo_path) else "🌱",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -224,7 +226,15 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------- 側邊欄設定 -----------------
-st.sidebar.markdown("### 🌿 **AI-GWRI 系統控制台**")
+if os.path.exists(logo_path):
+    s_col1, s_col2 = st.sidebar.columns([1, 3.2])
+    with s_col1:
+        st.image(logo_path, width=54)
+    with s_col2:
+        st.markdown("<div style='padding-top: 6px; font-weight: 700; font-size: 1.15rem; color: #F8FAFC;'>AI-GWRI<br><span style='font-size: 0.75rem; color: #34D399; font-weight: 500;'>漂綠風險數位鑑識</span></div>", unsafe_allow_html=True)
+else:
+    st.sidebar.markdown("### 🌿 **AI-GWRI 系統控制台**")
+st.sidebar.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
 
 default_api_key = os.getenv("OPENAI_API_KEY", "")
 api_key = st.sidebar.text_input(
