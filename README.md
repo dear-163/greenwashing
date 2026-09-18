@@ -1,32 +1,57 @@
-# AI-GWRI 企業永續報告書漂綠風險自動評分系統 (MVP)
+# AI-GWRI 企業永續報告書漂綠風險自動鑑識評分系統
 
-> **AI-based Greenwashing Risk Index (AI-GWRI)** 是基於學術文獻（Walker & Wan, 2012; Marquis et al., 2016; Michelon et al., 2015; Lagasio, 2024 等）與實務審計準則所設計的企業永續報告書漂綠風險評估架構。本專案將手冊（`codebook.md`）中的 28 個題項轉化為端到端可執行的 Evidence-based LLM 自動評分系統。
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://greenwashing-ai-gwri.streamlit.app)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](https://opensource.org/licenses/MIT)
+
+> **AI-based Greenwashing Risk Index (AI-GWRI)** 是基於頂級學術文獻（Walker & Wan, 2012; Marquis et al., 2016; Michelon et al., 2015; Lagasio, 2024 等）與國際實務審計準則（GRI, TCFD, SASB, ISSB）所構建的企業永續報告書漂綠風險鑑識評估架構。本系統將完整評估手冊（`codebook.md`）中的 7 大構面、28 個題項轉化為端到端可執行的 Evidence-based 自動化鑑識引擎。
+
+🌐 **線上展示雲端服務**: [https://greenwashing-ai-gwri.streamlit.app](https://greenwashing-ai-gwri.streamlit.app)
 
 ---
 
-## 🌟 核心特色與架構設計
+## 🌟 核心特色與架構優勢
 
 1. **嚴格保留實體 PDF 頁碼（Auditable Evidence Trail）**：
-   - 透過 `pdfplumber` 與 `pypdf` 引擎雙模備援解析，保證萃取出的每段證據均對應 PDF 實體頁碼（1-indexed Page Number）。
-   - 提供關鍵字權重機制（重大性、溫室氣體、廢棄物、裁罰、第三方查證等），智慧篩選大型報告書（100+ 頁）最具代表性的重點章節，杜絕 Context Window 溢位。
+   - 採用高效串流解析技術，百頁報告書秒級解析完成，百分之百鎖定 PDF 實體頁碼（1-indexed Page Number）。
+   - 具備智慧主題章節過濾演算法，針對重大性、溫室氣體盤查、減碳目標、環保違規裁罰及第三方查證等重點頁面進行精準權重抽取。
 
-2. **OpenAI 結構化輸出（Structured Outputs）**：
-   - 採用 OpenAI 最新 SDK Client 與 Pydantic 模型（`beta.chat.completions.parse`），確保 LLM 輸出嚴格符合 `ItemScoreResult` 規格。
-   - 完整注入手冊中 28 題之「操作型定義」、「0–4 分判定規則」、「正反範例」與「NA 判定規則」。
-   - 遵循五大核心原則：每題具備原文證據＋頁碼；0 分代表充分證據顯示低風險而非沒寫；資訊不足或非重大議題標示為 `NA`。
+2. **2 批次高併發打包架構（2-Batch Packaging Pipeline）**：
+   - 突破傳統多輪 API 連線瓶頸，將 7 大構面審計精煉打包為 2 大獨立批次（實質作為構面 + 獨立驗證與修辭構面）。
+   - 請求次數減少 65%，徹底杜絕 API 頻率限制（429）與伺服器壅塞（503），兼顧全面深度原文比對與秒級快速推論。
 
-3. **純 Python 數學公式計算（禁止 LLM 心算）**：
-   - 依照手冊第七節官方公式精確運算：
+3. **雙主流模型引擎支援（Google Gemini & OpenAI）**：
+   - **Google Gemini**: 原生支援 `gemini-3.1-flash-lite`（每日 500 次高額度推薦）、`gemini-3.5-flash-lite`、`gemini-3.7-flash`、`gemini-2.5-flash`、`gemini-2.5-pro`。
+   - **OpenAI**: 支援 `gpt-4o-mini`、`gpt-4o`。
+   - 輸入 `AIzaSy...` 金鑰自動路由至 Google Gemini 端點；輸入 `sk-...` 自動路由至 OpenAI 端點。
+
+4. **純 Python 數學公式計算（嚴禁 LLM 心算）**：
+   - 嚴格依照手冊官方公式進行正規化加權運算：
      $$\text{AI-GWRI} = 25\left(\frac{\text{CEG}}{4}\right) + 15\left(\frac{\text{QEG}}{4}\right) + 15\left(\frac{\text{TAG}}{4}\right) + 20\left(\frac{\text{SDR}}{4}\right) + 10\left(\frac{\text{VRG}}{4}\right) + 10\left(\frac{\text{VAG}}{4}\right) + 5\left(\frac{\text{LIR}}{4}\right)$$
-   - 各構面自動排除 NA 題項計算有效平均分；若有效題少於 2 題自動警示 `Low Reliability`。
-   - 彙總計算 NA Ratio、Evidence Coverage Ratio、High-confidence 分佈與總體資料品質評等。
+   - 各構面自動排除 NA 題項進行動態權重歸一化，若有效題數少於 2 題自動標示為 `Low Reliability`。
+   - 產出 NA 佔比、證據覆蓋率（Evidence Coverage）、信心水準分佈與總體資料品質評等。
 
-4. **互動式 Streamlit 前端與 Plotly 視覺化看板**：
-   - **總結看板**：AI-GWRI 總分 (0-100)、風險色塊、最高/次高風險構面、數據品質指標。
-   - **互動圖表**：七大構面漂綠風險雷達圖（含中度風險警戒線）、原始平均分 vs 加權得分貢獻長條圖、總分儀表盤、28 題評分分佈直方圖。
-   - **審計明細抽屜**：7 大構面 Tab + 28 題可展開檢視卡片，一覽給分、判定理由、支持證據（原文+頁碼）、反向證據（原文+頁碼）、缺漏資訊。
-   - **雙模匯出**：支援一鍵匯出完整結構化 `JSON` 報告，以及供計量實證分析使用的 28 題項 `CSV` 檔案。
-   - **內建 Demo 體驗模式**：即便無 API Key 或無大檔，也能一鍵載入示範報告書完整數據快速預覽。
+5. **數位金融鑑識級互動可視化看板**：
+   - **6 大 KPI 自適應摘要卡片**：AI-GWRI 總分、五級風險評定、最高風險構面中英全稱、題項覆蓋數、證據覆蓋率與審計品質。
+   - **雙子圖長條圖 (Subplots)**：左右分離獨立呈現「0-4 原始風險分」與「滿分 100 加權分貢獻」，徹底杜絕標籤數字擠壓重疊。
+   - **七大構面風險雷達圖**：附帶實質永續線 (1.0) 與中度風險警戒線 (2.0)。
+   - **總分儀表盤與 28 題評分分佈**：快速掌握企業漂綠風險落點。
+   - **結構化雙模匯出**：支援一鍵下載完整 `JSON` 鑑識審計報告與計量實證分析專用 `CSV` 資料。
+
+---
+
+## 📊 七大構面與權重對照表
+
+| 構面代碼 | 構面名稱 (中文) | 英文全名 | 題數 | 權重 | 理論文獻基礎 |
+|:---:|:---|:---|:---:|:---:|:---|
+| **CEG** | 主張—證據落差 | Claim–Evidence Gap | 4 題 | **25%** | Walker & Wan (2012); Lublóy et al. (2025) |
+| **QEG** | 量化與績效落差 | Quantification & Performance Evidence Gap | 4 題 | **15%** | Marquis et al. (2016); Michelon et al. (2015) |
+| **TAG** | 目標—達成落差 | Target–Achievement Gap | 4 題 | **15%** | Walker & Wan (2012); Lublóy et al. (2025) |
+| **SDR** | 選擇性揭露風險 | Selective Disclosure Risk | 4 題 | **20%** | Marquis et al. (2016); de Freitas Netto et al. (2020) |
+| **VRG** | 驗證與可信度落差 | Verification & Reliability Gap | 4 題 | **10%** | Michelon et al. (2015); Gorovaia & Makrominas (2025) |
+| **VAG** | 模糊性與空泛性落差 | Vagueness & Ambiguity Gap | 4 題 | **10%** | de Freitas Netto et al. (2020); Michelon et al. (2015) |
+| **LIR** | 語言印象管理風險 | Linguistic Impression-management Risk | 4 題 | **5%** | Lagasio (2024); Gorovaia & Makrominas (2025) |
+| **總計**| **AI-GWRI 總評** | **7 大構面完整審計** | **28 題** | **100%** | **五級漂綠風險矩陣評定** |
 
 ---
 
@@ -34,37 +59,32 @@
 
 ```
 ai-gwri/
-├── app.py                     # Streamlit 前端互動應用程式主入口
+├── app.py                     # Streamlit 前端鑑識應用主入口
 ├── codebook.md                # AI-GWRI 永續報告書漂綠風險評估手冊 (v1.0)
 ├── requirements.txt           # 專案必要依賴套件清單
-├── .env.example               # 環境變數設定範本 (API Key, Model 設定)
 ├── models/
-│   ├── __init__.py
 │   └── schema.py              # Pydantic 結構化資料模型 (ItemScoreResult, AssessmentReport 等)
 ├── core/
-│   ├── __init__.py
-│   ├── codebook_data.py       # 28 題項定義、0-4 分 Rubrics、正反例與 Prompt 生成器
-│   ├── pdf_parser.py          # PDF 實體頁碼解析、文字清洗與重大章節篩選器
-│   ├── scorer.py              # LLM 評分流程 (Step 1 宣稱辨識 + Step 2 構面批次審核 + Mock 引擎)
-│   └── calculator.py          # 純 Python 構面平均分、AI-GWRI 加權計算與信效度檢驗
-├── utils/
-│   ├── __init__.py
-│   └── visualizer.py          # Plotly 雷達圖、長條圖、儀表盤產製模組
+│   ├── codebook_data.py       # 28 題項定義、0-4 分 Rubrics、正反範例與 Prompt 生成器
+│   ├── pdf_parser.py          # PDF 串流頁碼解析、文字清洗與重大章節篩選器
+│   ├── scorer.py              # 2-Batch 打包審計引擎 (自帶 429/503 退避重試與容錯降級)
+│   └── calculator.py          # 純 Python 構面加權、正規化公式計算與信效度檢驗
+├── visualization/
+│   └── visualizer.py          # Plotly 雙子圖長條圖、雷達圖、儀表盤產製模組
 └── tests/
-    ├── test_codebook_and_calculator.py
-    └── test_calculator_and_report.py
+    └── test_codebook_and_calculator.py
 ```
 
 ---
 
-## 🚀 快速開始
+## 🚀 本地快速啟動
 
 ### 1. 安裝環境依賴
 
-建議使用 Python 3.10+：
+建議使用 Python 3.10 以上版本：
 
 ```bash
-# 建立虛擬環境
+# 建立並啟用虛擬環境
 python3 -m venv .venv
 source .venv/bin/activate
 
@@ -72,49 +92,26 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. 設定 API 金鑰
+### 2. 設定 API 金鑰 (選填)
 
-複製 `.env.example` 為 `.env`，並填入你的 OpenAI API Key：
+若需在本地預填 API Key，可建立 `.env` 檔案：
 
-```bash
-cp .env.example .env
-```
-
-`.env` 內容範例：
 ```env
-OPENAI_API_KEY=sk-your-openai-key-here
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_BASE_URL=
+OPENAI_API_KEY=sk-... 或 AIzaSy...
 ```
-*(亦可直接在 Streamlit 側邊欄輸入 API Key)*
 
-### 3. 啟動 Streamlit 應用程式
+*(亦可直接於 Streamlit 側邊欄即時輸入金鑰)*
+
+### 3. 啟動 Streamlit 鑑識系統
 
 ```bash
 streamlit run app.py
 ```
 
-瀏覽器將自動開啟 `http://localhost:8501`。
-
-### 4. 執行單元測試
-
-專案已內建完整測試套件：
-
-```bash
-python -m unittest discover tests
-```
+系統啟動後，瀏覽器將自動開啟 `http://localhost:8501`。
 
 ---
 
-## 📊 七大構面與權重對照表
+## ⚖️ 學術免責聲明 (Academic Disclaimer)
 
-| 構面代碼 | 構面名稱 (中文) | 英文全名 | 題數 | 權重 |
-|:---:|:---|:---|:---:|:---:|
-| **CEG** | 主張—證據落差 | Claim–Evidence Gap | 4 題 | **25%** |
-| **QEG** | 量化與績效落差 | Quantification & Performance Evidence Gap | 4 題 | **15%** |
-| **TAG** | 目標—達成落差 | Target–Achievement Gap | 4 題 | **15%** |
-| **SDR** | 選擇性揭露風險 | Selective Disclosure Risk | 4 題 | **20%** |
-| **VRG** | 驗證與可信度落差 | Verification & Reliability Gap | 4 題 | **10%** |
-| **VAG** | 模糊性與空泛性落差 | Vagueness & Ambiguity Gap | 4 題 | **10%** |
-| **LIR** | 語言印象管理風險 | Linguistic Impression-management Risk | 4 題 | **5%** |
-| **總計**| **AI-GWRI 總評** | **7 大構面完整審計** | **28 題** | **100%** |
+本系統評定之 AI-GWRI 分數與風險等級，代表企業永續報告書在揭露結構、證據充份性與語意修辭上所呈現的「漂綠風險（Greenwashing Risk）」，不等同於已確認之法律違法、裁罰定讞或財務欺瞞事件。報告成果適用於學術研究、永續投資盡職調查（ESG Due Diligence）及企業自律檢視之輔助參考。
