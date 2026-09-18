@@ -63,7 +63,8 @@ class ItemScoreResult(BaseModel):
         default_factory=list,
         description="支持評分的真實 PDF 實體頁碼列表（不可隨意編造，必須在 PDF 文本中可定位）"
     )
-    evidence_quote: str = Field(
+    evidence_quote: Optional[str] = Field(
+        default="報告書中無充分直接引文",
         description="支持評分的報告書原文摘錄（需包含足夠上下文以供人工審核驗證）"
     )
     counter_evidence_page: Optional[List[int]] = Field(
@@ -74,7 +75,8 @@ class ItemScoreResult(BaseModel):
         default=None,
         description="與初步判斷相反的反向證據原文摘錄（如有）"
     )
-    reasoning_summary: str = Field(
+    reasoning_summary: Optional[str] = Field(
+        default="未提供進一步判定理由說明",
         description="判定理由與評分依據說明（不超過 100-150 字）"
     )
     year_compare: Literal["Improved", "Stable", "Deteriorated", "NA"] = Field(

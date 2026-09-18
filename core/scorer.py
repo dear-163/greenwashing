@@ -412,6 +412,10 @@ class AIGWRIScorer:
                 item = output_items_dict[code]
                 item.item_name = exp["title"]
                 item.dimension = dimension_code
+                if not item.evidence_quote:
+                    item.evidence_quote = "報告書中無充分直接引文"
+                if not item.reasoning_summary:
+                    item.reasoning_summary = "未提供進一步判定理由說明"
                 sanitized_items.append(item)
             else:
                 # 補上 NA 預設項
