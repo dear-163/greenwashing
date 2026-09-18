@@ -52,25 +52,20 @@ api_key = st.sidebar.text_input(
 )
 
 is_gemini = api_key.strip().startswith("AIzaSy")
-if is_gemini:
-    st.sidebar.success("✨ 偵測到 Google Gemini API Key，已自動切換為 Gemini 相容端點！")
-    default_base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
-    available_models = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
-else:
-    default_base_url = os.getenv("OPENAI_BASE_URL", "")
-    available_models = ["gpt-4o-mini", "gpt-4o", "gemini-2.5-flash"]
+ALL_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gpt-4o-mini", "gpt-4o"]
+default_idx = 0 if is_gemini else 3
 
 base_url = st.sidebar.text_input(
     "API Base URL (選填)",
-    value=default_base_url,
+    value="https://generativelanguage.googleapis.com/v1beta/openai/" if is_gemini else os.getenv("OPENAI_BASE_URL", ""),
     help="自訂 OpenAI 相容代理端點（輸入 Gemini Key 時自動設為 Google 官方相容端點）"
 )
 
 model_choice = st.sidebar.selectbox(
     "選擇評估模型",
-    options=available_models,
-    index=0,
-    help="模型選擇：OpenAI (gpt-4o-mini, gpt-4o) 或 Google (gemini-2.5-flash)"
+    options=ALL_MODELS,
+    index=default_idx,
+    help="模型選擇：Google (gemini-2.5-flash) 或 OpenAI (gpt-4o-mini, gpt-4o)"
 )
 
 st.sidebar.markdown("---")
@@ -147,10 +142,14 @@ if start_eval:
             status_box.write(f"[{int(ratio*100)}%] {msg}")
 
         try:
+            effective_model = model_choice
+            if is_gemini and "gemini" not in model_choice.lower():
+                effective_model = "gemini-2.5-flash"
+
             scorer = AIGWRIScorer(
                 api_key=api_key,
-                base_url=base_url if base_url.strip() else None,
-                model=model_choice,
+                base_url=base_url.strip() if base_url.strip() else None,
+                model=effective_model,
                 pdf_parser=st.session_state.get("pdf_parser_instance", PDFParser())
             )
 
