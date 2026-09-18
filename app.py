@@ -195,10 +195,10 @@ st.markdown("""
 
     /* Streamlit KPI Metric 數值精緻自適應防爆版 */
     div[data-testid="stMetricValue"] {
-        font-size: 1.15rem !important;
+        font-size: 1.05rem !important;
         font-weight: 700 !important;
-        line-height: 1.3 !important;
-        white-space: normal !important;
+        line-height: 1.35 !important;
+        white-space: pre-line !important;
         word-break: break-word !important;
     }
     div[data-testid="stMetricLabel"] {
@@ -215,7 +215,7 @@ st.markdown("""
         border: 1px solid rgba(52, 211, 153, 0.25) !important;
         border-radius: 10px !important;
         padding: 8px 10px !important;
-        min-height: 85px !important;
+        min-height: 90px !important;
         display: flex !important;
         flex-direction: column !important;
         justify-content: center !important;
@@ -434,30 +434,30 @@ if report:
                 help="有效題項中同時包含實體頁碼與原文引述之比例"
             )
         with kpi_col5:
-            # 確保提取為精簡中文名稱（如 CEG 主張證據）
-            dim_raw = report.highest_risk_dimension or ""
-            dim_display = "無顯著風險"
-            dim_mapping = {
-                "CEG": "CEG 主張證據",
-                "Claim": "CEG 主張證據",
-                "QEG": "QEG 量化績效",
-                "Quantification": "QEG 量化績效",
-                "TAG": "TAG 目標達成",
-                "Target": "TAG 目標達成",
-                "SDR": "SDR 選擇揭露",
-                "Selective": "SDR 選擇揭露",
-                "VRG": "VRG 驗證可信",
-                "Verification": "VRG 驗證可信",
-                "VAG": "VAG 模糊空泛",
-                "Vagueness": "VAG 模糊空泛",
-                "LIR": "LIR 語言修辭",
-                "Linguistic": "LIR 語言修辭"
+            dim_raw = report.highest_risk_dimension or "無"
+            # 支援完整中英文名稱（如 Claim–Evidence Gap 主張—證據落差）完整顯示
+            full_name_map = {
+                "CEG": "CEG 主張—證據落差\n(Claim–Evidence)",
+                "Claim": "CEG 主張—證據落差\n(Claim–Evidence)",
+                "QEG": "QEG 量化與績效落差\n(Quantification)",
+                "Quantification": "QEG 量化與績效落差\n(Quantification)",
+                "TAG": "TAG 目標—達成落差\n(Target–Achievement)",
+                "Target": "TAG 目標—達成落差\n(Target–Achievement)",
+                "SDR": "SDR 選擇性揭露風險\n(Selective Disclosure)",
+                "Selective": "SDR 選擇性揭露風險\n(Selective Disclosure)",
+                "VRG": "VRG 驗證與可信度落差\n(Verification Gap)",
+                "Verification": "VRG 驗證與可信度落差\n(Verification Gap)",
+                "VAG": "VAG 模糊與空泛性落差\n(Vagueness Gap)",
+                "Vagueness": "VAG 模糊與空泛性落差\n(Vagueness Gap)",
+                "LIR": "LIR 語言印象管理風險\n(Linguistic Impression)",
+                "Linguistic": "LIR 語言印象管理風險\n(Linguistic Impression)"
             }
-            for k, v in dim_mapping.items():
+            dim_display = dim_raw
+            for k, v in full_name_map.items():
                 if k in dim_raw:
                     dim_display = v
                     break
-            
+
             st.metric(
                 label="最高風險構面",
                 value=dim_display,
