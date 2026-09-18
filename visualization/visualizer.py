@@ -123,100 +123,119 @@ def create_radar_chart(dimension_scores: Dict[str, DimensionScore]) -> go.Figure
     return fig
 
 
+from plotly.subplots import make_subplots
+
 def create_dimension_bar_chart(dimension_scores: Dict[str, DimensionScore]) -> go.Figure:
     """
     繪製七大構面原始平均分與加權分長條圖。
-    優化排版，將 x 軸標籤與圖表邊距加大，避免文字重疊。
+    採用雙子圖 (Subplots) 左右獨立分開呈現，徹底解決藍色與綠色柱子高低相近時數字擠壓疊在一起的問題！
     """
     dim_codes = ["CEG", "QEG", "TAG", "SDR", "VRG", "VAG", "LIR"]
-    dim_chinese = {
-        "CEG": "CEG 主張證據",
-        "QEG": "QEG 量化績效",
-        "TAG": "TAG 目標達成",
-        "SDR": "SDR 選擇揭露",
-        "VRG": "VRG 驗證可靠",
-        "VAG": "VAG 模糊空泛",
-        "LIR": "LIR 語言印象"
-    }
     
     names = []
     raw_scores = []
     weighted_scores = []
+    hover_raw = []
+    hover_weighted = []
 
     for code in dim_codes:
         ds = dimension_scores.get(code)
         if ds:
-            names.append(f"{code}<br>({int(ds.weight*100)}%)")
-            raw_scores.append(round(ds.raw_average or 0.0, 2))
-            weighted_scores.append(round(ds.weighted_score or 0.0, 1))
+            w_pct = int(ds.weight * 100)
+            names.append(f"<b>{code}</b><br><span style='font-size:10px;color:#94A3B8;'>{w_pct}%</span>")
+            r_val = round(ds.raw_average or 0.0, 2)
+            w_val = round(ds.weighted_score or 0.0, 1)
+            raw_scores.append(r_val)
+            weighted_scores.append(w_val)
+            hover_raw.append(f"構面: {code} ({ds.dimension_name})<br>原始平均: {r_val:.2f} / 4.0")
+            hover_weighted.append(f"構面: {code} ({ds.dimension_name})<br>權重: {w_pct}%<br>加權貢獻: {w_val:.1f} 分")
 
-    fig = go.Figure()
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=(
+            "<b>各構面原始平均風險分 (0-4 分制)</b>",
+            "<b>各構面加權得分貢獻 (滿分 100)</b>"
+        ),
+        horizontal_spacing=0.12
+    )
 
-    # 原始得分
-    fig.add_trace(go.Bar(
-        x=names,
-        y=raw_scores,
-        name="原始平均分 (0-4分)",
-        marker_color="#38BDF8",
-        marker_line=dict(color="#0284C7", width=1.5),
-        text=[f"{s:.2f}" for s in raw_scores],
-        textposition="outside",
-        textfont=dict(color="#E2E8F0", size=11),
-        yaxis="y1"
-    ))
+    # 左圖：原始平均分 (0-4分)
+    fig.add_trace(
+        go.Bar(
+            x=names,
+            y=raw_scores,
+            name="原始平均分 (0-4分)",
+            marker_color="#38BDF8",
+            marker_line=dict(color="#0284C7", width=1.5),
+            text=[f"{s:.2f}" for s in raw_scores],
+            textposition="outside",
+            textfont=dict(color="#F8FAFC", size=12, family="sans-serif"),
+            hovertext=hover_raw,
+            hoverinfo="text"
+        ),
+        row=1, col=1
+    )
 
-    # 加權得分貢獻
-    fig.add_trace(go.Bar(
-        x=names,
-        y=weighted_scores,
-        name="加權得分貢獻 (滿分100)",
-        marker_color="#10B981",
-        marker_line=dict(color="#059669", width=1.5),
-        text=[f"{ws:.1f}分" for ws in weighted_scores],
-        textposition="outside",
-        textfont=dict(color="#E2E8F0", size=11),
-        yaxis="y2"
-    ))
+    # 右圖：加權得分貢獻 (滿分100)
+    fig.add_trace(
+        go.Bar(
+            x=names,
+            y=weighted_scores,
+            name="加權得分貢獻",
+            marker_color="#10B981",
+            marker_line=dict(color="#059669", width=1.5),
+            text=[f"{ws:.1f}分" for ws in weighted_scores],
+            textposition="outside",
+            textfont=dict(color="#F8FAFC", size=12, family="sans-serif"),
+            hovertext=hover_weighted,
+            hoverinfo="text"
+        ),
+        row=1, col=2
+    )
 
-    max_weighted = max(weighted_scores) if weighted_scores else 25.0
-    y2_upper = max(max_weighted * 1.35, 30.0)
+    max_w = max(weighted_scores) if weighted_scores else 20.0
+    y_right_max = max(max_w * 1.35, 25.0)
 
     fig.update_layout(
-        barmode="group",
-        bargap=0.25,
-        bargroupgap=0.1,
-        yaxis=dict(
-            title=dict(text="原始平均分 (0-4)", font=dict(color="#38BDF8", size=12)),
-            range=[0, 5.0],
-            side="left",
-            showgrid=True,
-            gridcolor="#1E293B",
-            tickfont=dict(color="#94A3B8")
-        ),
-        yaxis2=dict(
-            title=dict(text="加權分貢獻", font=dict(color="#34D399", size=12)),
-            range=[0, y2_upper],
-            side="right",
-            overlaying="y",
-            showgrid=False,
-            tickfont=dict(color="#94A3B8")
-        ),
-        xaxis=dict(
-            tickfont=dict(color="#E2E8F0", size=11)
-        ),
-        legend=dict(
-            orientation="h",
-            yanchor="top",
-            y=-0.18,
-            xanchor="center",
-            x=0.5,
-            font=dict(color="#CBD5E1", size=12)
-        ),
-        margin=dict(l=45, r=45, t=40, b=80),
-        height=450,
+        height=420,
+        margin=dict(l=30, r=30, t=60, b=50),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
+        showlegend=False
     )
+
+    # 調整子圖標題顏色
+    for annotation in fig['layout']['annotations']:
+        annotation['font'] = dict(size=14, color='#E2E8F0', family='sans-serif')
+
+    # 左側 Y 軸
+    fig.update_yaxes(
+        range=[0, 4.9],
+        showgrid=True,
+        gridcolor="#1E293B",
+        tickfont=dict(color="#94A3B8"),
+        title=dict(text="分數 (0-4)", font=dict(color="#38BDF8", size=11)),
+        row=1, col=1
+    )
+    # 右側 Y 軸
+    fig.update_yaxes(
+        range=[0, y_right_max],
+        showgrid=True,
+        gridcolor="#1E293B",
+        tickfont=dict(color="#94A3B8"),
+        title=dict(text="加權得分", font=dict(color="#34D399", size=11)),
+        row=1, col=2
+    )
+
+    fig.update_xaxes(
+        tickfont=dict(color="#E2E8F0", size=11),
+        row=1, col=1
+    )
+    fig.update_xaxes(
+        tickfont=dict(color="#E2E8F0", size=11),
+        row=1, col=2
+    )
+
     return fig
 
 
