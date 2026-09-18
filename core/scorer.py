@@ -106,15 +106,6 @@ class AIGWRIScorer:
 
         for attempt in range(max_retries):
             try:
-                if attempt > 0:
-                    wait_sec = min(3.0 * attempt + 1.0, 15.0)
-                    if progress_callback:
-                        progress_callback(
-                            current_progress,
-                            f"⏳ 觸發 API 頻率限制 (429)，自動冷卻 {wait_sec:.1f} 秒後進行第 {attempt+1} 次重試..."
-                        )
-                    time.sleep(wait_sec)
-
                 kwargs = {
                     "model": current_model,
                     "messages": messages,
@@ -132,7 +123,7 @@ class AIGWRIScorer:
                     # 解析建議重試時間，若有的話
                     import re
                     match = re.search(r"retry in ([\d\.]+)s", err_text, re.IGNORECASE)
-                    retry_delay = float(match.group(1)) if match else (3.5 * (attempt + 1))
+                    retry_delay = float(match.group(1)) + 1.0 if match else (4.0 * (attempt + 1))
                     if progress_callback:
                         progress_callback(
                             current_progress,
