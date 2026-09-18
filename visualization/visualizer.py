@@ -125,9 +125,20 @@ def create_radar_chart(dimension_scores: Dict[str, DimensionScore]) -> go.Figure
 
 def create_dimension_bar_chart(dimension_scores: Dict[str, DimensionScore]) -> go.Figure:
     """
-    繪製七大構面原始平均分 (0-4) 與權重貢獻對比長條圖
+    繪製七大構面原始平均分與加權分長條圖。
+    優化排版，將 x 軸標籤與圖表邊距加大，避免文字重疊。
     """
     dim_codes = ["CEG", "QEG", "TAG", "SDR", "VRG", "VAG", "LIR"]
+    dim_chinese = {
+        "CEG": "CEG 主張證據",
+        "QEG": "QEG 量化績效",
+        "TAG": "TAG 目標達成",
+        "SDR": "SDR 選擇揭露",
+        "VRG": "VRG 驗證可靠",
+        "VAG": "VAG 模糊空泛",
+        "LIR": "LIR 語言印象"
+    }
+    
     names = []
     raw_scores = []
     weighted_scores = []
@@ -136,8 +147,8 @@ def create_dimension_bar_chart(dimension_scores: Dict[str, DimensionScore]) -> g
         ds = dimension_scores.get(code)
         if ds:
             names.append(f"{code}<br>({int(ds.weight*100)}%)")
-            raw_scores.append(ds.raw_average or 0.0)
-            weighted_scores.append(ds.weighted_score or 0.0)
+            raw_scores.append(round(ds.raw_average or 0.0, 2))
+            weighted_scores.append(round(ds.weighted_score or 0.0, 1))
 
     fig = go.Figure()
 
@@ -150,7 +161,7 @@ def create_dimension_bar_chart(dimension_scores: Dict[str, DimensionScore]) -> g
         marker_line=dict(color="#0284C7", width=1.5),
         text=[f"{s:.2f}" for s in raw_scores],
         textposition="outside",
-        textfont=dict(color="#E2E8F0"),
+        textfont=dict(color="#E2E8F0", size=11),
         yaxis="y1"
     ))
 
@@ -158,28 +169,33 @@ def create_dimension_bar_chart(dimension_scores: Dict[str, DimensionScore]) -> g
     fig.add_trace(go.Bar(
         x=names,
         y=weighted_scores,
-        name="加權總分貢獻 (滿分100)",
+        name="加權得分貢獻 (滿分100)",
         marker_color="#10B981",
         marker_line=dict(color="#059669", width=1.5),
         text=[f"{ws:.1f}分" for ws in weighted_scores],
         textposition="outside",
-        textfont=dict(color="#E2E8F0"),
+        textfont=dict(color="#E2E8F0", size=11),
         yaxis="y2"
     ))
 
+    max_weighted = max(weighted_scores) if weighted_scores else 25.0
+    y2_upper = max(max_weighted * 1.35, 30.0)
+
     fig.update_layout(
         barmode="group",
+        bargap=0.25,
+        bargroupgap=0.1,
         yaxis=dict(
-            title=dict(text="原始平均分 (0-4)", font=dict(color="#38BDF8")),
-            range=[0, 4.8],
+            title=dict(text="原始平均分 (0-4)", font=dict(color="#38BDF8", size=12)),
+            range=[0, 5.0],
             side="left",
             showgrid=True,
             gridcolor="#1E293B",
             tickfont=dict(color="#94A3B8")
         ),
         yaxis2=dict(
-            title=dict(text="加權分貢獻", font=dict(color="#34D399")),
-            range=[0, 30],
+            title=dict(text="加權分貢獻", font=dict(color="#34D399", size=12)),
+            range=[0, y2_upper],
             side="right",
             overlaying="y",
             showgrid=False,
@@ -190,14 +206,14 @@ def create_dimension_bar_chart(dimension_scores: Dict[str, DimensionScore]) -> g
         ),
         legend=dict(
             orientation="h",
-            yanchor="bottom",
-            y=-0.28,
+            yanchor="top",
+            y=-0.18,
             xanchor="center",
             x=0.5,
-            font=dict(color="#CBD5E1", size=11)
+            font=dict(color="#CBD5E1", size=12)
         ),
-        margin=dict(l=30, r=30, t=30, b=50),
-        height=400,
+        margin=dict(l=45, r=45, t=40, b=80),
+        height=450,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
     )
@@ -207,20 +223,21 @@ def create_dimension_bar_chart(dimension_scores: Dict[str, DimensionScore]) -> g
 def create_gauge_meter(score: float, risk_level: str) -> go.Figure:
     """
     繪製 AI-GWRI 總分儀表盤 (0-100)
+    改善標題與數值層疊問題，採用乾淨結構佈局
     """
     bar_color = "#EF4444" if score >= 60 else ("#F59E0B" if score >= 40 else "#10B981")
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=score,
-        domain={"x": [0, 1], "y": [0, 1]},
+        domain={"x": [0.05, 0.95], "y": [0.0, 0.82]},
         title={
-            "text": f"<span style='font-size:16px;color:#94A3B8;'>AI-GWRI 漂綠風險指數</span><br><span style='font-size:18px;font-weight:700;color:{bar_color};'>{risk_level}</span>",
-            "font": {"family": "sans-serif"}
+            "text": f"<b>AI-GWRI 漂綠風險指數</b><br><span style='font-size:15px;font-weight:600;color:{bar_color};'>[{risk_level}]</span>",
+            "font": {"family": "sans-serif", "size": 17, "color": "#F1F5F9"}
         },
-        number={"suffix": " 分", "font": {"size": 36, "color": "#F8FAFC", "family": "sans-serif"}},
+        number={"suffix": " 分", "font": {"size": 34, "color": "#F8FAFC", "family": "sans-serif"}},
         gauge={
-            "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#64748B", "tickfont": {"color": "#94A3B8"}},
-            "bar": {"color": bar_color, "thickness": 0.3},
+            "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": "#64748B", "tickfont": {"color": "#94A3B8", "size": 10}},
+            "bar": {"color": bar_color, "thickness": 0.28},
             "bgcolor": "#0B1510",
             "borderwidth": 1.5,
             "bordercolor": "#1E3A2B",
@@ -240,8 +257,8 @@ def create_gauge_meter(score: float, risk_level: str) -> go.Figure:
     ))
 
     fig.update_layout(
-        height=280,
-        margin=dict(l=30, r=30, t=40, b=20),
+        height=320,
+        margin=dict(l=30, r=30, t=60, b=20),
         paper_bgcolor="rgba(0,0,0,0)",
     )
     return fig
