@@ -42,7 +42,9 @@ class PDFParser:
     def parse_pdf(
         self,
         file_source: Union[str, bytes, io.BytesIO],
-        progress_callback: Optional[Any] = None
+        *args,
+        progress_callback: Optional[Any] = None,
+        **kwargs
     ) -> List[Dict[str, Any]]:
         """
         解析 PDF 檔案並回傳包含頁碼與文本的字典列表。
@@ -56,6 +58,10 @@ class PDFParser:
         Returns:
             List[Dict[str, Any]]: 格式為 [{"page": 1, "text": "...", "char_count": 120}, ...]
         """
+        cb = progress_callback or kwargs.get("progress_callback")
+        if cb is None and len(args) > 0:
+            cb = args[0]
+            
         self.pages_data = []
         
         if isinstance(file_source, bytes):
@@ -83,8 +89,8 @@ class PDFParser:
                     "text": cleaned_text,
                     "char_count": len(cleaned_text)
                 })
-                if progress_callback and (idx % 3 == 0 or idx == total_pages - 1):
-                    progress_callback(idx + 1, total_pages)
+                if cb and (idx % 3 == 0 or idx == total_pages - 1):
+                    cb(idx + 1, total_pages)
 
             if any(p["char_count"] > 0 for p in self.pages_data):
                 return self.pages_data
@@ -107,8 +113,8 @@ class PDFParser:
                         "text": cleaned_text,
                         "char_count": len(cleaned_text)
                     })
-                    if progress_callback and (idx % 3 == 0 or idx == total_pages - 1):
-                        progress_callback(idx + 1, total_pages)
+                    if cb and (idx % 3 == 0 or idx == total_pages - 1):
+                        cb(idx + 1, total_pages)
         except Exception as e:
             raise RuntimeError(f"PDF 解析失敗: {str(e)}")
         finally:

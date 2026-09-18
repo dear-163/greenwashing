@@ -268,7 +268,10 @@ if uploaded_file is not None:
 
         try:
             parser = PDFParser()
-            pages = parser.parse_pdf(file_bytes, progress_callback=on_parse_progress)
+            try:
+                pages = parser.parse_pdf(file_bytes, progress_callback=on_parse_progress)
+            except TypeError:
+                pages = parser.parse_pdf(file_bytes)
             st.session_state["parsed_pages"] = pages
             st.session_state["current_filename"] = uploaded_file.name
             st.session_state["pdf_parser_instance"] = parser
