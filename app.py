@@ -254,20 +254,33 @@ st.markdown("""
 
 # ----------------- PDF 解析區 -----------------
 if uploaded_file is not None:
-    file_bytes = uploaded_file.getvalue()
     if (st.session_state["parsed_pages"] is None or 
         st.session_state.get("current_filename") != uploaded_file.name):
         
-        with st.spinner(f"正在解析 PDF 報告書: {uploaded_file.name} (保留真實實體頁碼中...)"):
-            try:
-                parser = PDFParser()
-                pages = parser.parse_pdf(file_bytes)
-                st.session_state["parsed_pages"] = pages
-                st.session_state["current_filename"] = uploaded_file.name
-                st.session_state["pdf_parser_instance"] = parser
-                st.success(f"✅ 成功解析 {len(pages)} 頁 PDF 實體頁面，總字元數: {sum(p['char_count'] for p in pages):,}")
-            except Exception as e:
-                st.error(f"❌ PDF 解析失敗: {str(e)}")
+        file_bytes = uploaded_file.getvalue()
+        parse_status = st.status(f"⚡ 正在極速解析 PDF 報告書: {uploaded_file.name}...", expanded=True)
+        parse_bar = parse_status.progress(0.0)
+
+        def on_parse_progress(curr, total):
+            ratio = min(curr / total, 1.0) if total else 1.0
+            parse_bar.progress(ratio)
+            parse_status.write(f"📄 正在抽取實體頁碼與內文: 第 {curr} / {total} 頁 ({int(ratio*100)}%)...")
+
+        try:
+            parser = PDFParser()
+            pages = parser.parse_pdf(file_bytes, progress_callback=on_parse_progress)
+            st.session_state["parsed_pages"] = pages
+            st.session_state["current_filename"] = uploaded_file.name
+            st.session_state["pdf_parser_instance"] = parser
+            total_chars = sum(p["char_count"] for p in pages)
+            parse_status.update(
+                label=f"✅ 成功完成 {len(pages)} 頁 PDF 實體頁面極速解析（總文字量: {total_chars:,} 字）！",
+                state="complete",
+                expanded=False
+            )
+        except Exception as e:
+            parse_status.update(label=f"❌ PDF 解析失敗: {str(e)}", state="error", expanded=True)
+            st.error(f"❌ PDF 解析失敗: {str(e)}")
 
 col_info1, col_info2, col_info3 = st.columns([2, 1, 1])
 with col_info1:
