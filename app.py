@@ -4,11 +4,17 @@ AI-GWRI 企業永續報告書漂綠風險自動評估系統 (Streamlit 前端主
 """
 
 import os
+import sys
 import io
 import json
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
+
+# 確保專案根目錄在 sys.path 首位，避免 Linux/Streamlit Cloud 套件命名衝突
+current_dir = os.path.abspath(os.path.dirname(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
 load_dotenv()
 
@@ -16,7 +22,7 @@ from models.schema import AssessmentReport, ItemScoreResult
 from core.pdf_parser import PDFParser
 from core.scorer import AIGWRIScorer, MockAIGWRIScorer
 from core.codebook_data import DIMENSIONS_META, CODEBOOK_ITEMS
-from utils.visualizer import (
+from visualization.visualizer import (
     create_radar_chart,
     create_dimension_bar_chart,
     create_gauge_meter,

@@ -8,7 +8,7 @@ from core.calculator import (
     build_assessment_report
 )
 from core.scorer import MockAIGWRIScorer
-from utils.visualizer import create_radar_chart, create_dimension_bar_chart, create_gauge_meter
+from visualization.visualizer import create_radar_chart, create_dimension_bar_chart, create_gauge_meter
 
 class TestAI_GWRI_Full(unittest.TestCase):
     def test_sample_report_generation(self):
