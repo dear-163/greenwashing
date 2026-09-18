@@ -403,73 +403,90 @@ if report:
             st.caption("學術免責聲明")
             st.caption(f"<small>{report.disclaimer}</small>", unsafe_allow_html=True)
 
-        # 1. 總結看板 (KPI Cards)
-        kpi_col1, kpi_col2, kpi_col3, kpi_col4, kpi_col5, kpi_col6 = st.columns(6)
-        
-        with kpi_col1:
-            st.metric(
-                label="AI-GWRI 總分",
-                value=f"{report.ai_gwri_score:.1f}",
-                delta="/ 100",
-                delta_color="off",
-                help="依七大構面官方權重公式純 Python 計算之漂綠風險指數 (分數愈高風險愈高)"
-            )
-        with kpi_col2:
-            r_level = report.risk_level
-            st.metric(label="漂綠風險等級", value=r_level.split(" ")[0])
-        with kpi_col3:
-            v_cnt = getattr(report.quality_metrics, 'valid_count', getattr(report.quality_metrics, 'evaluated_items_count', 28))
-            n_cnt = getattr(report.quality_metrics, 'na_count', getattr(report.quality_metrics, 'na_items_count', 0))
-            st.metric(
-                label="可評估題項",
-                value=f"{v_cnt} 題",
-                delta=f"NA: {n_cnt} 題" if n_cnt > 0 else "完整評估",
-                delta_color="off"
-            )
-        with kpi_col4:
-            cov_pct = report.quality_metrics.evidence_coverage_ratio * 100
-            st.metric(
-                label="證據覆蓋率",
-                value=f"{cov_pct:.1f}%",
-                help="有效題項中同時包含實體頁碼與原文引述之比例"
-            )
-        with kpi_col5:
-            dim_raw = report.highest_risk_dimension or "無"
-            # 支援完整中英文名稱（如 Claim–Evidence Gap 主張—證據落差）完整顯示
-            full_name_map = {
-                "CEG": "CEG 主張—證據落差\n(Claim–Evidence)",
-                "Claim": "CEG 主張—證據落差\n(Claim–Evidence)",
-                "QEG": "QEG 量化與績效落差\n(Quantification)",
-                "Quantification": "QEG 量化與績效落差\n(Quantification)",
-                "TAG": "TAG 目標—達成落差\n(Target–Achievement)",
-                "Target": "TAG 目標—達成落差\n(Target–Achievement)",
-                "SDR": "SDR 選擇性揭露風險\n(Selective Disclosure)",
-                "Selective": "SDR 選擇性揭露風險\n(Selective Disclosure)",
-                "VRG": "VRG 驗證與可信度落差\n(Verification Gap)",
-                "Verification": "VRG 驗證與可信度落差\n(Verification Gap)",
-                "VAG": "VAG 模糊與空泛性落差\n(Vagueness Gap)",
-                "Vagueness": "VAG 模糊與空泛性落差\n(Vagueness Gap)",
-                "LIR": "LIR 語言印象管理風險\n(Linguistic Impression)",
-                "Linguistic": "LIR 語言印象管理風險\n(Linguistic Impression)"
-            }
-            dim_display = dim_raw
-            for k, v in full_name_map.items():
-                if k in dim_raw:
-                    dim_display = v
-                    break
+        # 1. 總結看板 (專業金融鑑識自適應卡片，徹底杜絕文字擠壓被截斷)
+        v_cnt = getattr(report.quality_metrics, 'valid_count', getattr(report.quality_metrics, 'evaluated_items_count', 28))
+        n_cnt = getattr(report.quality_metrics, 'na_count', getattr(report.quality_metrics, 'na_items_count', 0))
+        cov_pct = report.quality_metrics.evidence_coverage_ratio * 100
+        r_level = report.risk_level.split(" ")[0]
+        q_val = report.quality_metrics.overall_data_quality
 
-            st.metric(
-                label="最高風險構面",
-                value=dim_display,
-                help=report.highest_risk_dimension
+        # 解析最高風險構面之代碼、全稱與原始平均分數
+        dim_raw = report.highest_risk_dimension or "無"
+        top_dim_code = "無"
+        top_dim_name = "各構面均衡"
+        top_dim_score_str = ""
+
+        # 從 dimension_scores 中找出真正的最高分構面
+        if report.dimension_scores:
+            scored_sorted = sorted(
+                [(ds.dimension_code, ds.dimension_name, ds.raw_average or 0.0) for ds in report.dimension_scores.values()],
+                key=lambda x: x[2],
+                reverse=True
             )
-        with kpi_col6:
-            q_val = report.quality_metrics.overall_data_quality
-            st.metric(
-                label="資料品質評等",
-                value=f"{q_val} 級",
-                help="綜合考量 NA 比率、證據覆蓋率與 High-confidence 評定"
-            )
+            if scored_sorted and scored_sorted[0][2] > 0:
+                top_dim_code = scored_sorted[0][0]
+                top_dim_name = scored_sorted[0][1].split(" ")[0]
+                top_dim_score_str = f"{scored_sorted[0][2]:.2f} / 4.0"
+
+        # 風險等級顏色映射
+        risk_color_map = {
+            "無明顯風險": "#34D399",
+            "低度風險": "#38BDF8",
+            "中度風險": "#FBBF24",
+            "高度風險": "#F97316",
+            "極高風險": "#EF4444"
+        }
+        r_color = risk_color_map.get(r_level, "#34D399")
+
+        st.markdown(f"""
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px;">
+            <div class="metric-card">
+                <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">AI-GWRI 漂綠總分</div>
+                <div style="font-size: 1.85rem; font-weight: 800; color: #F8FAFC; line-height: 1.1;">
+                    {report.ai_gwri_score:.1f}
+                    <span style="font-size: 0.85rem; color: #64748B; font-weight: 500;">/ 100</span>
+                </div>
+                <div style="font-size: 0.72rem; color: #10B981; margin-top: 5px;">純公式加權計算</div>
+            </div>
+            <div class="metric-card">
+                <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">漂綠風險等級</div>
+                <div style="font-size: 1.35rem; font-weight: 800; color: {r_color}; line-height: 1.2;">
+                    {r_level}
+                </div>
+                <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 5px;">五級風險矩陣評定</div>
+            </div>
+            <div class="metric-card">
+                <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">最高風險構面</div>
+                <div style="font-size: 1.15rem; font-weight: 800; color: #F87171; line-height: 1.2;">
+                    {top_dim_code} {top_dim_name}
+                </div>
+                <div style="font-size: 0.75rem; color: #CBD5E1; margin-top: 4px; font-weight: 600;">
+                    {top_dim_score_str}
+                </div>
+            </div>
+            <div class="metric-card">
+                <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">可評估題項覆蓋</div>
+                <div style="font-size: 1.5rem; font-weight: 800; color: #38BDF8; line-height: 1.1;">
+                    {v_cnt} <span style="font-size: 0.85rem; color: #64748B;">/ 28 題</span>
+                </div>
+                <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 5px;">NA 缺漏題數: {n_cnt} 題</div>
+            </div>
+            <div class="metric-card">
+                <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">實質證據覆蓋率</div>
+                <div style="font-size: 1.5rem; font-weight: 800; color: #10B981; line-height: 1.1;">
+                    {cov_pct:.1f}%
+                </div>
+                <div style="font-size: 0.72rem; color: #34D399; margin-top: 5px;">具頁碼與原文摘錄</div>
+            </div>
+            <div class="metric-card">
+                <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">審計資料品質</div>
+                <div style="font-size: 1.4rem; font-weight: 800; color: #A78BFA; line-height: 1.1;">
+                    {q_val} 級
+                </div>
+                <div style="font-size: 0.72rem; color: #C4B5FD; margin-top: 5px;">信度品質綜合驗證</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         # 2. 視覺化分析區塊
         st.markdown("### 📈 構面風險與視覺化圖表")
