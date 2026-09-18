@@ -434,22 +434,33 @@ if report:
                 help="有效題項中同時包含實體頁碼與原文引述之比例"
             )
         with kpi_col5:
-            # 簡潔提取構面代碼與中文簡稱，防止溢出
-            dim_str = report.highest_risk_dimension
-            dim_code_short = dim_str.split(" ")[0].replace("(", "").replace(")", "").strip()
-            dim_cn_map = {
-                "CEG": "主張證據",
-                "QEG": "量化績效",
-                "TAG": "目標達成",
-                "SDR": "選擇揭露",
-                "VRG": "驗證可信",
-                "VAG": "模糊空泛",
-                "LIR": "語言修辭"
+            # 確保提取為精簡中文名稱（如 CEG 主張證據）
+            dim_raw = report.highest_risk_dimension or ""
+            dim_display = "無顯著風險"
+            dim_mapping = {
+                "CEG": "CEG 主張證據",
+                "Claim": "CEG 主張證據",
+                "QEG": "QEG 量化績效",
+                "Quantification": "QEG 量化績效",
+                "TAG": "TAG 目標達成",
+                "Target": "TAG 目標達成",
+                "SDR": "SDR 選擇揭露",
+                "Selective": "SDR 選擇揭露",
+                "VRG": "VRG 驗證可信",
+                "Verification": "VRG 驗證可信",
+                "VAG": "VAG 模糊空泛",
+                "Vagueness": "VAG 模糊空泛",
+                "LIR": "LIR 語言修辭",
+                "Linguistic": "LIR 語言修辭"
             }
-            dim_display = f"{dim_code_short} {dim_cn_map.get(dim_code_short, '')}".strip()
+            for k, v in dim_mapping.items():
+                if k in dim_raw:
+                    dim_display = v
+                    break
+            
             st.metric(
                 label="最高風險構面",
-                value=dim_display or dim_str[:8],
+                value=dim_display,
                 help=report.highest_risk_dimension
             )
         with kpi_col6:
