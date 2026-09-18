@@ -210,8 +210,17 @@ is_gemini = api_key.strip().startswith("AIzaSy")
 if is_gemini:
     st.sidebar.success("✨ 已偵測為 Google Gemini Key，自動路由至 Gemini 端點！")
 
-ALL_MODELS = ["gemini-2.5-flash", "gemini-2.5-pro", "gpt-4o-mini", "gpt-4o"]
-default_idx = 0 if is_gemini else 2
+ALL_MODELS = [
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash-lite",
+    "gemini-3.7-flash",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
+    "gpt-4o-mini",
+    "gpt-4o"
+]
+default_idx = 0 if is_gemini else 6
 
 base_url = st.sidebar.text_input(
     "API Base URL (選填)",
@@ -223,7 +232,7 @@ model_choice = st.sidebar.selectbox(
     "選擇評估稽核模型",
     options=ALL_MODELS,
     index=default_idx,
-    help="模型：Google (gemini-2.5-flash, gemini-2.5-pro) 或 OpenAI (gpt-4o-mini, gpt-4o)"
+    help="推薦：gemini-3.1-flash-lite (每日 500 次高額度、15 RPM)，亦可選 3.7-flash 或 OpenAI"
 )
 
 st.sidebar.markdown("---")
@@ -327,7 +336,7 @@ if start_eval:
         try:
             effective_model = model_choice
             if is_gemini and "gemini" not in model_choice.lower():
-                effective_model = "gemini-2.5-flash"
+                effective_model = "gemini-3.1-flash-lite"
 
             scorer = AIGWRIScorer(
                 api_key=api_key,

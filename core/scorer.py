@@ -68,7 +68,7 @@ class AIGWRIScorer:
             if not self.base_url:
                 self.base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
             if self.model in ["gpt-4o-mini", "gpt-4o"]:
-                self.model = "gemini-2.5-flash"
+                self.model = "gemini-3.1-flash-lite"
 
     @property
     def is_gemini(self) -> bool:
@@ -125,14 +125,14 @@ class AIGWRIScorer:
                     match = re.search(r"retry in ([\d\.]+)s", err_text, re.IGNORECASE)
                     retry_delay = float(match.group(1)) + 1.0 if match else (4.0 * (attempt + 1))
                     
-                    # 若等待時間過長（超過 20 秒）且當前為 pro 模型，可嘗試切換回 flash
-                    if retry_delay > 20 and "pro" in current_model:
-                        current_model = "gemini-2.5-flash"
-                        self.model = "gemini-2.5-flash"
+                    # 若等待時間過長（超過 20 秒）且當前模型受到嚴重頻率限制，自動切換至高配額的 gemini-3.1-flash-lite
+                    if retry_delay > 15 and current_model != "gemini-3.1-flash-lite" and "gemini" in current_model:
+                        current_model = "gemini-3.1-flash-lite"
+                        self.model = "gemini-3.1-flash-lite"
                         if progress_callback:
                             progress_callback(
                                 current_progress,
-                                f"⚡ 偵測到 Pro 模型配額限制，已自動切換為快速模型 gemini-2.5-flash 繼續..."
+                                f"⚡ 偵測到模型配額限制，已自動切換為每日 500 次高額度模型 gemini-3.1-flash-lite 繼續..."
                             )
                         continue
 
