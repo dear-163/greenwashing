@@ -210,7 +210,7 @@ is_gemini = api_key.strip().startswith("AIzaSy")
 if is_gemini:
     st.sidebar.success("✨ 已偵測為 Google Gemini Key，自動路由至 Gemini 端點！")
 
-ALL_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gpt-4o-mini", "gpt-4o"]
+ALL_MODELS = ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-1.5-pro", "gpt-4o-mini", "gpt-4o"]
 default_idx = 0 if is_gemini else 3
 
 base_url = st.sidebar.text_input(
@@ -327,7 +327,7 @@ if start_eval:
         try:
             effective_model = model_choice
             if is_gemini and "gemini" not in model_choice.lower():
-                effective_model = "gemini-2.5-flash"
+                effective_model = "gemini-1.5-flash"
 
             scorer = AIGWRIScorer(
                 api_key=api_key,

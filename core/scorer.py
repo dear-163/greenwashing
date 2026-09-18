@@ -14,6 +14,7 @@ AI-GWRI LLM 自動評分核心流程模組
 import os
 import io
 import re
+import time
 import json
 import logging
 from typing import List, Dict, Any, Optional, Callable
@@ -90,10 +91,64 @@ class AIGWRIScorer:
             self._client = OpenAI(**kwargs)
         return self._client
 
+    def _call_with_retry(
+        self,
+        messages: List[Dict[str, str]],
+        response_format: Any = None,
+        max_retries: int = 5,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
+        current_progress: float = 0.0,
+        task_name: str = ""
+    ) -> Any:
+        """支援 429 頻率/配額限制自動退避重試，並在 2.5-flash 配額耗盡時自動無縫降級為 1.5-flash"""
+        current_model = self.model
+        last_error = None
+
+        for attempt in range(max_retries):
+            try:
+                if attempt > 0:
+                    wait_sec = min(3.0 * attempt + 1.0, 15.0)
+                    if progress_callback:
+                        progress_callback(
+                            current_progress,
+                            f"⏳ 觸發 API 頻率限制 (429)，自動冷卻 {wait_sec:.1f} 秒後進行第 {attempt+1} 次重試..."
+                        )
+                    time.sleep(wait_sec)
+
+                kwargs = {
+                    "model": current_model,
+                    "messages": messages,
+                    "temperature": 0.0,
+                }
+                if response_format:
+                    kwargs["response_format"] = response_format
+
+                return self.client.chat.completions.create(**kwargs)
+            except Exception as e:
+                last_error = e
+                err_text = str(e)
+                if "429" in err_text or "RESOURCE_EXHAUSTED" in err_text or "quota" in err_text.lower():
+                    logger.warning(f"[{task_name}] 觸發 429 限制 (嘗試 {attempt+1}/{max_retries}): {err_text}")
+                    # 若為 gemini-2.5-flash，切換至每日 1,500 次配額的 gemini-1.5-flash
+                    if "2.5-flash" in current_model:
+                        current_model = "gemini-1.5-flash"
+                        self.model = "gemini-1.5-flash"
+                        if progress_callback:
+                            progress_callback(
+                                current_progress,
+                                "🔄 gemini-2.5-flash 免費配額達上限，自動無縫切換至 gemini-1.5-flash 繼續..."
+                            )
+                    continue
+                else:
+                    raise e
+
+        raise last_error
+
     def step1_screen_materiality_and_claims(
         self,
         pages_data: List[Dict[str, Any]],
-        max_context_chars: int = 40000
+        max_context_chars: int = 40000,
+        progress_callback: Optional[Callable[[float, str], None]] = None
     ) -> MaterialityScreeningOutput:
         """
         Step 1 & 2: 辨識企業重大環境議題，並抽取 3-8 項最具代表性的環境宣稱與承諾。
@@ -123,31 +178,18 @@ class AIGWRIScorer:
         system_prompt = sanitize_utf8(system_prompt)
         user_prompt = sanitize_utf8(user_prompt)
 
-        if not self.is_gemini:
-            try:
-                response = self.client.beta.chat.completions.parse(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    response_format=MaterialityScreeningOutput,
-                    temperature=0.0
-                )
-                return response.choices[0].message.parsed
-            except Exception as e:
-                logger.warning(f"Step 1 Structured Outputs 呼叫異常，嘗試備援解析: {str(e)}")
-
-        # JSON Mode 解析（相容 Google Gemini 與備援 OpenAI）
+        # JSON Mode 解析（相容 Google Gemini 與備援 OpenAI，自帶 429 退避與降級）
         schema_desc = json.dumps(MaterialityScreeningOutput.model_json_schema(), ensure_ascii=False)
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt + f"\n請務必輸出符合以下 JSON Schema 規範的 JSON 物件：\n{schema_desc}"},
-                {"role": "user", "content": user_prompt}
-            ],
+        messages = [
+            {"role": "system", "content": system_prompt + f"\n請務必輸出符合以下 JSON Schema 規範的 JSON 物件：\n{schema_desc}"},
+            {"role": "user", "content": user_prompt}
+        ]
+        response = self._call_with_retry(
+            messages=messages,
             response_format={"type": "json_object"},
-            temperature=0.0
+            progress_callback=progress_callback,
+            current_progress=0.08,
+            task_name="Step 1 Materiality"
         )
         data = json.loads(response.choices[0].message.content)
         return MaterialityScreeningOutput.model_validate(data)
@@ -157,13 +199,14 @@ class AIGWRIScorer:
         dimension_code: str,
         pages_data: List[Dict[str, Any]],
         materiality_summary: Optional[MaterialityScreeningOutput] = None,
-        max_context_chars: int = 60000
+        max_context_chars: int = 60000,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
+        current_progress: float = 0.0
     ) -> DimensionBatchScoreOutput:
         """
         對單一構面（包含 4 個題項）進行嚴格 Rubric 評分。
         注入 codebook.md 的 0-4 分詳細判定邏輯、正反範例與 NA 規則。
         """
-        dim_meta = DIMENSIONS_META.get(dimension_code, {})
         scoring_guide = build_dimension_scoring_prompt(dimension_code)
 
         # 針對不同構面調整頁面篩選策略
@@ -223,31 +266,17 @@ class AIGWRIScorer:
         system_prompt = sanitize_utf8(system_prompt)
         user_prompt = sanitize_utf8(user_prompt)
 
-        if not self.is_gemini:
-            try:
-                response = self.client.beta.chat.completions.parse(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    response_format=DimensionBatchScoreOutput,
-                    temperature=0.0
-                )
-                result = response.choices[0].message.parsed
-                return self._validate_and_sanitize_dimension_output(result, dimension_code)
-            except Exception as e:
-                logger.warning(f"構面 {dimension_code} Structured Outputs 異常: {str(e)}，切換備援解析")
-
         schema_desc = json.dumps(DimensionBatchScoreOutput.model_json_schema(), ensure_ascii=False)
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt + f"\n請務必輸出符合以下 JSON Schema 規範的 JSON 物件：\n{schema_desc}"},
-                {"role": "user", "content": user_prompt}
-            ],
+        messages = [
+            {"role": "system", "content": system_prompt + f"\n請務必輸出符合以下 JSON Schema 規範的 JSON 物件：\n{schema_desc}"},
+            {"role": "user", "content": user_prompt}
+        ]
+        response = self._call_with_retry(
+            messages=messages,
             response_format={"type": "json_object"},
-            temperature=0.0
+            progress_callback=progress_callback,
+            current_progress=current_progress,
+            task_name=f"Step 2 [{dimension_code}]"
         )
         data = json.loads(response.choices[0].message.content)
         result = DimensionBatchScoreOutput.model_validate(data)
@@ -315,7 +344,10 @@ class AIGWRIScorer:
             progress_callback(0.05, "開始解析報告書重大性議題與核心環境宣稱 (Step 1)...")
 
         # Step 1: Materiality & Claims
-        materiality = self.step1_screen_materiality_and_claims(pages_data)
+        materiality = self.step1_screen_materiality_and_claims(
+            pages_data=pages_data,
+            progress_callback=progress_callback
+        )
         comp_name = company_name_override or materiality.company_name or "受評企業"
         rep_year = report_year_override or materiality.report_year or "未揭露"
 
@@ -333,10 +365,16 @@ class AIGWRIScorer:
                     f"正在評估構面 [{dim_code}] {dim_meta['name']} (第 {idx+1}/{total_dims} 個構面)..."
                 )
 
+            # 構面之間適度冷卻 1.2 秒，防止觸發 Google Free Tier 15 RPM 限制
+            if idx > 0:
+                time.sleep(1.2)
+
             dim_output = self.step2_score_single_dimension(
                 dimension_code=dim_code,
                 pages_data=pages_data,
-                materiality_summary=materiality
+                materiality_summary=materiality,
+                progress_callback=progress_callback,
+                current_progress=dim_progress
             )
             all_item_results.extend(dim_output.items)
 
