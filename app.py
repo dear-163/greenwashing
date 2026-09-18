@@ -193,27 +193,32 @@ st.markdown("""
         border: 1px solid rgba(239, 68, 68, 0.3);
     }
 
-    /* Streamlit KPI Metric 數值自動縮放防爆版 */
+    /* Streamlit KPI Metric 數值精緻自適應防爆版 */
     div[data-testid="stMetricValue"] {
-        font-size: 1.35rem !important;
+        font-size: 1.15rem !important;
         font-weight: 700 !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
+        line-height: 1.3 !important;
+        white-space: normal !important;
+        word-break: break-word !important;
     }
     div[data-testid="stMetricLabel"] {
-        font-size: 0.85rem !important;
+        font-size: 0.82rem !important;
+        font-weight: 500 !important;
         color: #94A3B8 !important;
         white-space: nowrap !important;
     }
     div[data-testid="stMetricDelta"] {
-        font-size: 0.78rem !important;
+        font-size: 0.75rem !important;
     }
     div[data-testid="stMetric"] {
         background: rgba(15, 23, 42, 0.65) !important;
         border: 1px solid rgba(52, 211, 153, 0.25) !important;
         border-radius: 10px !important;
-        padding: 10px 14px !important;
+        padding: 8px 10px !important;
+        min-height: 85px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
     }
 </style>
 """, unsafe_allow_html=True)

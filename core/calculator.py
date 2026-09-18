@@ -172,13 +172,33 @@ def find_top_risk_dimensions(
 ) -> Tuple[str, str]:
     """找出原始平均分數最高與次高的構面"""
     scored = [
-        (ds.dimension_name, ds.raw_average if ds.raw_average is not None else -1.0)
+        (ds.dimension_code, ds.dimension_name, ds.raw_average if ds.raw_average is not None else -1.0)
         for ds in dimension_scores.values()
     ]
-    scored.sort(key=lambda x: x[1], reverse=True)
+    scored.sort(key=lambda x: x[2], reverse=True)
 
-    top_1 = f"{scored[0][0]} ({scored[0][1]:.2f} / 4.0)" if scored and scored[0][1] >= 0 else "無"
-    top_2 = f"{scored[1][0]} ({scored[1][1]:.2f} / 4.0)" if len(scored) > 1 and scored[1][1] >= 0 else "無"
+    cn_map = {
+        "CEG": "主張證據",
+        "QEG": "量化績效",
+        "TAG": "目標達成",
+        "SDR": "選擇揭露",
+        "VRG": "驗證可信",
+        "VAG": "模糊空泛",
+        "LIR": "語言修辭"
+    }
+
+    if scored and scored[0][2] >= 0:
+        c1 = scored[0][0]
+        top_1 = f"{c1} {cn_map.get(c1, '')}".strip()
+    else:
+        top_1 = "無"
+
+    if len(scored) > 1 and scored[1][2] >= 0:
+        c2 = scored[1][0]
+        top_2 = f"{c2} {cn_map.get(c2, '')}".strip()
+    else:
+        top_2 = "無"
+
     return top_1, top_2
 
 
