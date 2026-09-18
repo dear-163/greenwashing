@@ -150,7 +150,7 @@ class AIGWRIScorer:
     def step1_screen_materiality_and_claims(
         self,
         pages_data: List[Dict[str, Any]],
-        max_context_chars: int = 20000,
+        max_context_chars: int = 35000,
         progress_callback: Optional[Callable[[float, str], None]] = None
     ) -> MaterialityScreeningOutput:
         """
@@ -160,7 +160,7 @@ class AIGWRIScorer:
         # 優先挑選前 5 頁（目錄、摘要）及重大性與氣候相關頁面
         relevant_pages = self.pdf_parser.filter_relevant_pages(
             pages_data=pages_data,
-            max_pages=12,
+            max_pages=18,
             focus_group="materiality"
         )
         context_text = self.pdf_parser.get_compact_context(
@@ -202,7 +202,7 @@ class AIGWRIScorer:
         dimension_code: str,
         pages_data: List[Dict[str, Any]],
         materiality_summary: Optional[MaterialityScreeningOutput] = None,
-        max_context_chars: int = 25000,
+        max_context_chars: int = 50000,
         progress_callback: Optional[Callable[[float, str], None]] = None,
         current_progress: float = 0.0
     ) -> DimensionBatchScoreOutput:
@@ -225,7 +225,7 @@ class AIGWRIScorer:
 
         relevant_pages = self.pdf_parser.filter_relevant_pages(
             pages_data=pages_data,
-            max_pages=18,
+            max_pages=35,
             focus_group=focus_grp
         )
         context_text = self.pdf_parser.get_compact_context(
