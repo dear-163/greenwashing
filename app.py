@@ -63,15 +63,44 @@ st.set_page_config(
 
 # 注入 Apple Touch Icon、PWA 與瀏覽器快捷圖標支援（手機加到主畫面專用）
 if logo_b64:
+    # 1. 注入靜態標籤
     st.markdown(f"""
-    <head>
-        <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,{logo_b64}">
-        <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,{logo_b64}">
-        <link rel="icon" type="image/png" sizes="16x16" href="data:image/png;base64,{logo_b64}">
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-title" content="AI-GWRI">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    </head>
+    <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,{logo_b64}">
+    <link rel="icon" type="image/png" sizes="192x192" href="data:image/png;base64,{logo_b64}">
+    <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,{logo_b64}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="AI-GWRI">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script>
+        (function() {{
+            const iconUri = "data:image/png;base64,{logo_b64}";
+            const doc = window.parent ? window.parent.document : document;
+            
+            // 移除舊的預設圖示或 crown 圖示
+            const oldIcons = doc.querySelectorAll("link[rel*='icon'], link[rel*='apple-touch-icon']");
+            oldIcons.forEach(el => el.remove());
+
+            // 注入新的 Apple Touch Icon (iOS 加到主畫面專用)
+            const appleIcon = doc.createElement('link');
+            appleIcon.rel = 'apple-touch-icon';
+            appleIcon.sizes = '180x180';
+            appleIcon.href = iconUri;
+            doc.head.appendChild(appleIcon);
+
+            // 注入新的 Favicon (桌面與瀏覽器分頁)
+            const favIcon = doc.createElement('link');
+            favIcon.rel = 'icon';
+            favIcon.type = 'image/png';
+            favIcon.href = iconUri;
+            doc.head.appendChild(favIcon);
+
+            // 注入 Web App Meta
+            const metaTitle = doc.createElement('meta');
+            metaTitle.name = 'apple-mobile-web-app-title';
+            metaTitle.content = 'AI-GWRI';
+            doc.head.appendChild(metaTitle);
+        }})();
+    </script>
     """, unsafe_allow_html=True)
 
 # 自訂高質感反漂綠 (Greenwashing Forensic) 深色主題樣式
