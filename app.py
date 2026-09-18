@@ -192,6 +192,29 @@ st.markdown("""
         border-radius: 4px;
         border: 1px solid rgba(239, 68, 68, 0.3);
     }
+
+    /* Streamlit KPI Metric 數值自動縮放防爆版 */
+    div[data-testid="stMetricValue"] {
+        font-size: 1.35rem !important;
+        font-weight: 700 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    div[data-testid="stMetricLabel"] {
+        font-size: 0.85rem !important;
+        color: #94A3B8 !important;
+        white-space: nowrap !important;
+    }
+    div[data-testid="stMetricDelta"] {
+        font-size: 0.78rem !important;
+    }
+    div[data-testid="stMetric"] {
+        background: rgba(15, 23, 42, 0.65) !important;
+        border: 1px solid rgba(52, 211, 153, 0.25) !important;
+        border-radius: 10px !important;
+        padding: 10px 14px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -381,7 +404,9 @@ if report:
         with kpi_col1:
             st.metric(
                 label="AI-GWRI 總分",
-                value=f"{report.ai_gwri_score:.1f} / 100",
+                value=f"{report.ai_gwri_score:.1f}",
+                delta="/ 100",
+                delta_color="off",
                 help="依七大構面官方權重公式純 Python 計算之漂綠風險指數 (分數愈高風險愈高)"
             )
         with kpi_col2:
@@ -392,8 +417,8 @@ if report:
             n_cnt = getattr(report.quality_metrics, 'na_count', getattr(report.quality_metrics, 'na_items_count', 0))
             st.metric(
                 label="可評估題項",
-                value=f"{v_cnt} / 28",
-                delta=f"NA: {n_cnt} 題",
+                value=f"{v_cnt} 題",
+                delta=f"NA: {n_cnt} 題" if n_cnt > 0 else "完整評估",
                 delta_color="off"
             )
         with kpi_col4:
@@ -404,15 +429,29 @@ if report:
                 help="有效題項中同時包含實體頁碼與原文引述之比例"
             )
         with kpi_col5:
+            # 簡潔提取構面代碼與中文簡稱，防止溢出
+            dim_str = report.highest_risk_dimension
+            dim_code_short = dim_str.split(" ")[0].replace("(", "").replace(")", "").strip()
+            dim_cn_map = {
+                "CEG": "主張證據",
+                "QEG": "量化績效",
+                "TAG": "目標達成",
+                "SDR": "選擇揭露",
+                "VRG": "驗證可信",
+                "VAG": "模糊空泛",
+                "LIR": "語言修辭"
+            }
+            dim_display = f"{dim_code_short} {dim_cn_map.get(dim_code_short, '')}".strip()
             st.metric(
                 label="最高風險構面",
-                value=report.highest_risk_dimension.split(" ")[0],
+                value=dim_display or dim_str[:8],
                 help=report.highest_risk_dimension
             )
         with kpi_col6:
+            q_val = report.quality_metrics.overall_data_quality
             st.metric(
                 label="資料品質評等",
-                value=report.quality_metrics.overall_data_quality,
+                value=f"{q_val} 級",
                 help="綜合考量 NA 比率、證據覆蓋率與 High-confidence 評定"
             )
 
