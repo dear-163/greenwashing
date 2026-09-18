@@ -120,14 +120,25 @@ class AIGWRIScorer:
                 err_text = str(e)
                 if "429" in err_text or "RESOURCE_EXHAUSTED" in err_text or "quota" in err_text.lower():
                     logger.warning(f"[{task_name}] 觸發 429 限制 (嘗試 {attempt+1}/{max_retries}): {err_text}")
-                    # 解析建議重試時間，若有的話
                     import re
                     match = re.search(r"retry in ([\d\.]+)s", err_text, re.IGNORECASE)
                     retry_delay = float(match.group(1)) + 1.0 if match else (4.0 * (attempt + 1))
+                    
+                    # 若等待時間過長（超過 20 秒）且當前為 pro 模型，可嘗試切換回 flash
+                    if retry_delay > 20 and "pro" in current_model:
+                        current_model = "gemini-2.5-flash"
+                        self.model = "gemini-2.5-flash"
+                        if progress_callback:
+                            progress_callback(
+                                current_progress,
+                                f"⚡ 偵測到 Pro 模型配額限制，已自動切換為快速模型 gemini-2.5-flash 繼續..."
+                            )
+                        continue
+
                     if progress_callback:
                         progress_callback(
                             current_progress,
-                            f"⏳ 偵測到 API 頻率限制 (429)，自動冷卻 {retry_delay:.1f} 秒後進行第 {attempt+2} 次重試..."
+                            f"⏳ 偵測到 API 頻率限制 (429)，自動冷卻 {retry_delay:.1f} 秒後重試 ({attempt+1}/{max_retries})..."
                         )
                     time.sleep(retry_delay)
                     continue
@@ -139,7 +150,7 @@ class AIGWRIScorer:
     def step1_screen_materiality_and_claims(
         self,
         pages_data: List[Dict[str, Any]],
-        max_context_chars: int = 40000,
+        max_context_chars: int = 20000,
         progress_callback: Optional[Callable[[float, str], None]] = None
     ) -> MaterialityScreeningOutput:
         """
@@ -149,7 +160,7 @@ class AIGWRIScorer:
         # 優先挑選前 5 頁（目錄、摘要）及重大性與氣候相關頁面
         relevant_pages = self.pdf_parser.filter_relevant_pages(
             pages_data=pages_data,
-            max_pages=20,
+            max_pages=12,
             focus_group="materiality"
         )
         context_text = self.pdf_parser.get_compact_context(
@@ -191,7 +202,7 @@ class AIGWRIScorer:
         dimension_code: str,
         pages_data: List[Dict[str, Any]],
         materiality_summary: Optional[MaterialityScreeningOutput] = None,
-        max_context_chars: int = 60000,
+        max_context_chars: int = 25000,
         progress_callback: Optional[Callable[[float, str], None]] = None,
         current_progress: float = 0.0
     ) -> DimensionBatchScoreOutput:
@@ -214,7 +225,7 @@ class AIGWRIScorer:
 
         relevant_pages = self.pdf_parser.filter_relevant_pages(
             pages_data=pages_data,
-            max_pages=30,
+            max_pages=18,
             focus_group=focus_grp
         )
         context_text = self.pdf_parser.get_compact_context(
