@@ -96,6 +96,14 @@ class DimensionBatchScoreOutput(BaseModel):
     items: List[ItemScoreResult] = Field(description="該構面下 4 個題項的詳細評分結果")
 
 
+class MultiDimensionBatchScoreOutput(BaseModel):
+    """
+    多構面打包評分輸出模型（將多個構面合併為單一 API 請求，徹底消除 429 頻率限制）
+    """
+    batch_notes: Optional[str] = Field(default=None, description="本批次審核重點觀察")
+    dimensions: List[DimensionBatchScoreOutput] = Field(description="本批次各構面的評分結果清單")
+
+
 class DimensionScore(BaseModel):
     """構面分數統計"""
     dimension_code: str = Field(description="構面代碼 (CEG, QEG, TAG, SDR, VRG, VAG, LIR)")
