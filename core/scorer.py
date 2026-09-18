@@ -125,14 +125,14 @@ class AIGWRIScorer:
                     match = re.search(r"retry in ([\d\.]+)s", err_text, re.IGNORECASE)
                     retry_delay = float(match.group(1)) + 1.0 if match else (4.0 * (attempt + 1))
                     
-                    # 若等待時間過長（超過 20 秒）且當前模型受到嚴重頻率限制，自動切換至高配額的 gemini-3.1-flash-lite
+                    # 若等待時間過長（超過 15 秒）且當前模型非 gemini-3.1-flash-lite，自動切換至高額度模型
                     if retry_delay > 15 and current_model != "gemini-3.1-flash-lite" and "gemini" in current_model:
                         current_model = "gemini-3.1-flash-lite"
                         self.model = "gemini-3.1-flash-lite"
                         if progress_callback:
                             progress_callback(
                                 current_progress,
-                                f"⚡ 偵測到模型配額限制，已自動切換為每日 500 次高額度模型 gemini-3.1-flash-lite 繼續..."
+                                f"⚡ 偵測到模型頻率限制，已自動切換為高額度模型 gemini-3.1-flash-lite 繼續..."
                             )
                         continue
 
@@ -142,6 +142,35 @@ class AIGWRIScorer:
                             f"⏳ 偵測到 API 頻率限制 (429)，自動冷卻 {retry_delay:.1f} 秒後重試 ({attempt+1}/{max_retries})..."
                         )
                     time.sleep(retry_delay)
+                    continue
+
+                elif "503" in err_text or "UNAVAILABLE" in err_text or "high demand" in err_text.lower() or "overloaded" in err_text.lower() or "500" in err_text:
+                    logger.warning(f"[{task_name}] 觸發伺服器暫時繁忙 (503/UNAVAILABLE, 嘗試 {attempt+1}/{max_retries}): {err_text}")
+                    # 若為特定 flash-lite 繁忙，切換回穩定 GA 的 gemini-2.5-flash
+                    if "3.1-flash-lite" in current_model:
+                        current_model = "gemini-2.5-flash"
+                        self.model = "gemini-2.5-flash"
+                        if progress_callback:
+                            progress_callback(
+                                current_progress,
+                                "🔄 Google 伺服器忙碌 (503)，已自動切換至穩定的 gemini-2.5-flash 接續評估..."
+                            )
+                    elif "2.5-flash" in current_model:
+                        current_model = "gemini-3.5-flash-lite"
+                        self.model = "gemini-3.5-flash-lite"
+                        if progress_callback:
+                            progress_callback(
+                                current_progress,
+                                "🔄 Google 伺服器忙碌 (503)，已自動備援至 gemini-3.5-flash-lite 接續評估..."
+                            )
+
+                    wait_sec = 2.5 * (attempt + 1)
+                    if progress_callback:
+                        progress_callback(
+                            current_progress,
+                            f"⏳ Google 伺服器暫時壅塞，自動冷卻 {wait_sec:.1f} 秒後進行第 {attempt+2} 次自動重試..."
+                        )
+                    time.sleep(wait_sec)
                     continue
                 else:
                     raise e
