@@ -534,7 +534,7 @@ if report:
         dim_raw = report.highest_risk_dimension or "無"
         top_dim_code = "無"
         top_dim_name = "各構面均衡"
-        top_dim_score_str = ""
+        top_dim_score_str = "得分: 0.00 / 4.0"
 
         # 從 dimension_scores 中找出真正的最高分構面
         if report.dimension_scores:
@@ -558,55 +558,43 @@ if report:
         }
         r_color = risk_color_map.get(r_level, "#34D399")
 
-        st.markdown(f"""
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px;">
-            <div class="metric-card">
-                <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">AI-GWRI 漂綠總分</div>
-                <div style="font-size: 1.85rem; font-weight: 800; color: #F8FAFC; line-height: 1.1;">
-                    {report.ai_gwri_score:.1f}
-                    <span style="font-size: 0.85rem; color: #64748B; font-weight: 500;">/ 100</span>
-                </div>
-                <div style="font-size: 0.72rem; color: #10B981; margin-top: 5px;">純公式加權計算</div>
-            </div>
-            <div class="metric-card">
-                <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">漂綠風險等級</div>
-                <div style="font-size: 1.35rem; font-weight: 800; color: {r_color}; line-height: 1.2;">
-                    {r_level}
-                </div>
-                <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 5px;">五級風險矩陣評定</div>
-            </div>
-            <div class="metric-card">
-                <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">最高風險構面</div>
-                <div style="font-size: 1.15rem; font-weight: 800; color: #F87171; line-height: 1.2;">
-                    {top_dim_code} {top_dim_name}
-                </div>
-                <div style="font-size: 0.75rem; color: #CBD5E1; margin-top: 4px; font-weight: 600;">
-                    {top_dim_score_str}
-                </div>
-            </div>
-            <div class="metric-card">
-                <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">可評估題項覆蓋</div>
-                <div style="font-size: 1.5rem; font-weight: 800; color: #38BDF8; line-height: 1.1;">
-                    {v_cnt} <span style="font-size: 0.85rem; color: #64748B;">/ 28 題</span>
-                </div>
-                <div style="font-size: 0.72rem; color: #94A3B8; margin-top: 5px;">NA 缺漏題數: {n_cnt} 題</div>
-            </div>
-            <div class="metric-card">
-                <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">實質證據覆蓋率</div>
-                <div style="font-size: 1.5rem; font-weight: 800; color: #10B981; line-height: 1.1;">
-                    {cov_pct:.1f}%
-                </div>
-                <div style="font-size: 0.72rem; color: #34D399; margin-top: 5px;">具頁碼與原文摘錄</div>
-            </div>
-            <div class="metric-card">
-                <div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">審計資料品質</div>
-                <div style="font-size: 1.4rem; font-weight: 800; color: #A78BFA; line-height: 1.1;">
-                    {q_val} 級
-                </div>
-                <div style="font-size: 0.72rem; color: #C4B5FD; margin-top: 5px;">信度品質綜合驗證</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        cards_html = f"""<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px;">
+<div class="metric-card">
+<div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">AI-GWRI 漂綠總分</div>
+<div style="font-size: 1.85rem; font-weight: 800; color: #F8FAFC; line-height: 1.1;">{report.ai_gwri_score:.1f}<span style="font-size: 0.85rem; color: #64748B; font-weight: 500;"> / 100</span></div>
+<div style="font-size: 0.72rem; color: #10B981; margin-top: 5px;">純公式加權計算</div>
+</div>
+<div class="metric-card">
+<div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">漂綠風險等級</div>
+<div style="font-size: 1.35rem; font-weight: 800; color: {r_color}; line-height: 1.2;">{r_level}</div>
+<div style="font-size: 0.72rem; color: #94A3B8; margin-top: 5px;">五級風險矩陣評定</div>
+</div>
+<div class="metric-card">
+<div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">最高風險構面</div>
+<div style="font-size: 1.15rem; font-weight: 800; color: #F87171; line-height: 1.2;">{top_dim_code} {top_dim_name}</div>
+<div style="font-size: 0.75rem; color: #CBD5E1; margin-top: 4px; font-weight: 600;">{top_dim_score_str}</div>
+</div>
+<div class="metric-card">
+<div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">可評估題項覆蓋</div>
+<div style="font-size: 1.5rem; font-weight: 800; color: #38BDF8; line-height: 1.1;">{v_cnt}<span style="font-size: 0.85rem; color: #64748B;"> / 28 題</span></div>
+<div style="font-size: 0.72rem; color: #94A3B8; margin-top: 5px;">NA 缺漏題數: {n_cnt} 題</div>
+</div>
+<div class="metric-card">
+<div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">實質證據覆蓋率</div>
+<div style="font-size: 1.5rem; font-weight: 800; color: #10B981; line-height: 1.1;">{cov_pct:.1f}%</div>
+<div style="font-size: 0.72rem; color: #34D399; margin-top: 5px;">具頁碼與原文摘錄</div>
+</div>
+<div class="metric-card">
+<div style="font-size: 0.8rem; color: #94A3B8; font-weight: 500; margin-bottom: 6px;">審計資料品質</div>
+<div style="font-size: 1.4rem; font-weight: 800; color: #A78BFA; line-height: 1.1;">{q_val} 級</div>
+<div style="font-size: 0.72rem; color: #C4B5FD; margin-top: 5px;">信度品質綜合驗證</div>
+</div>
+</div>"""
+
+        if hasattr(st, "html"):
+            st.html(cards_html)
+        else:
+            st.markdown(cards_html, unsafe_allow_html=True)
 
         # 2. 視覺化分析區塊
         st.markdown("### 📈 構面風險與視覺化圖表")
