@@ -368,9 +368,15 @@ class AIGWRIScorer:
                     f"正在評估構面 [{dim_code}] {dim_meta['name']} (第 {idx+1}/{total_dims} 個構面)..."
                 )
 
-            # 構面之間適度冷卻 1.2 秒，防止觸發 Google Free Tier 15 RPM 限制
+            # 主動防禦型間隔：構面之間平滑節流 4.5 秒
+            # 這能確保每一分鐘的累積 Token 穩定低於 Google 免費層的 250,000 TPM 閾值，徹底杜絕被罰站 30-60 秒！
             if idx > 0:
-                time.sleep(1.2)
+                if progress_callback:
+                    progress_callback(
+                        dim_progress,
+                        f"🛡️ 構面節流防護：平滑配額間隔中 (4 秒)，避免觸發 Google 頻率限制..."
+                    )
+                time.sleep(4.0)
 
             dim_output = self.step2_score_single_dimension(
                 dimension_code=dim_code,
