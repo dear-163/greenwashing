@@ -1,0 +1,23 @@
+{
+  "name": "AI-GWRI 企業永續漂綠風險數位鑑識系統",
+  "short_name": "AI-GWRI",
+  "description": "AI-Powered Greenwashing Risk Assessment System",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0A192F",
+  "theme_color": "#0A192F",
+  "icons": [
+    {
+      "src": "app/static/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "app/static/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

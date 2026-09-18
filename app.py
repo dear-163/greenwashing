@@ -47,58 +47,116 @@ def full_width_kw():
         return {"width": "stretch"}
     return {"use_container_width": True}
 
+from PIL import Image
+
 logo_path = os.path.join(current_dir, "assets", "logo.png")
+logo_img = None
 logo_b64 = ""
 if os.path.exists(logo_path):
+    try:
+        logo_img = Image.open(logo_path)
+    except Exception:
+        pass
     with open(logo_path, "rb") as _f:
         logo_b64 = base64.b64encode(_f.read()).decode("utf-8")
+
+# 自動修補 Streamlit 底層 static 目錄 (覆蓋預設 favicon/apple-touch-icon)
+def _ensure_streamlit_static_patched():
+    try:
+        import shutil
+        st_static_dir = os.path.join(os.path.dirname(st.__file__), "static")
+        if os.path.exists(st_static_dir) and os.path.exists(logo_path):
+            for fname in ["favicon.png", "favicon.ico", "apple-touch-icon.png", "apple-touch-icon-precomposed.png", "logo.png"]:
+                dest = os.path.join(st_static_dir, fname)
+                shutil.copyfile(logo_path, dest)
+            index_path = os.path.join(st_static_dir, "index.html")
+            if os.path.exists(index_path):
+                with open(index_path, "r", encoding="utf-8") as _inf:
+                    idx_html = _inf.read()
+                if "apple-touch-icon.png" not in idx_html:
+                    injection = '''<link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="./apple-touch-icon-precomposed.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="AI-GWRI" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>AI-GWRI 企業永續漂綠風險評估系統</title>'''
+                    idx_html = idx_html.replace("<title>Streamlit</title>", injection)
+                    with open(index_path, "w", encoding="utf-8") as _outf:
+                        _outf.write(idx_html)
+    except Exception:
+        pass
+
+_ensure_streamlit_static_patched()
 
 # 頁面配置
 st.set_page_config(
     page_title="AI-GWRI 漂綠風險數位鑑識系統",
-    page_icon=logo_path if os.path.exists(logo_path) else "🌱",
+    page_icon=logo_img if logo_img is not None else "🌱",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # 注入 Apple Touch Icon、PWA 與瀏覽器快捷圖標支援（手機加到主畫面專用）
 if logo_b64:
-    # 1. 注入靜態標籤
+    # 注入靜態標籤與前端動態穿透指令
     st.markdown(f"""
-    <link rel="apple-touch-icon" sizes="180x180" href="data:image/png;base64,{logo_b64}">
-    <link rel="icon" type="image/png" sizes="192x192" href="data:image/png;base64,{logo_b64}">
-    <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,{logo_b64}">
+    <link rel="apple-touch-icon" sizes="180x180" href="app/static/apple-touch-icon.png">
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="app/static/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="app/static/logo.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="app/static/favicon.png">
+    <link rel="manifest" href="app/static/manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="AI-GWRI">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script>
         (function() {{
-            const iconUri = "data:image/png;base64,{logo_b64}";
-            const doc = window.parent ? window.parent.document : document;
-            
-            // 移除舊的預設圖示或 crown 圖示
-            const oldIcons = doc.querySelectorAll("link[rel*='icon'], link[rel*='apple-touch-icon']");
-            oldIcons.forEach(el => el.remove());
+            function updateIcons(doc) {{
+                if (!doc || !doc.head) return;
+                
+                // 移除任何舊的皇冠圖示
+                const oldIcons = doc.querySelectorAll("link[rel*='icon'], link[rel*='apple-touch-icon']");
+                oldIcons.forEach(el => el.remove());
 
-            // 注入新的 Apple Touch Icon (iOS 加到主畫面專用)
-            const appleIcon = doc.createElement('link');
-            appleIcon.rel = 'apple-touch-icon';
-            appleIcon.sizes = '180x180';
-            appleIcon.href = iconUri;
-            doc.head.appendChild(appleIcon);
+                const iconUri = "data:image/png;base64,{logo_b64}";
 
-            // 注入新的 Favicon (桌面與瀏覽器分頁)
-            const favIcon = doc.createElement('link');
-            favIcon.rel = 'icon';
-            favIcon.type = 'image/png';
-            favIcon.href = iconUri;
-            doc.head.appendChild(favIcon);
+                const appleIcon = doc.createElement('link');
+                appleIcon.rel = 'apple-touch-icon';
+                appleIcon.sizes = '180x180';
+                appleIcon.href = iconUri;
+                doc.head.appendChild(appleIcon);
 
-            // 注入 Web App Meta
-            const metaTitle = doc.createElement('meta');
-            metaTitle.name = 'apple-mobile-web-app-title';
-            metaTitle.content = 'AI-GWRI';
-            doc.head.appendChild(metaTitle);
+                const appleIconPre = doc.createElement('link');
+                appleIconPre.rel = 'apple-touch-icon-precomposed';
+                appleIconPre.sizes = '180x180';
+                appleIconPre.href = iconUri;
+                doc.head.appendChild(appleIconPre);
+
+                const favIcon = doc.createElement('link');
+                favIcon.rel = 'shortcut icon';
+                favIcon.type = 'image/png';
+                favIcon.href = iconUri;
+                doc.head.appendChild(favIcon);
+
+                const metaTitle = doc.createElement('meta');
+                metaTitle.name = 'apple-mobile-web-app-title';
+                metaTitle.content = 'AI-GWRI';
+                doc.head.appendChild(metaTitle);
+            }}
+
+            try {{
+                // 針對當前文檔
+                updateIcons(document);
+                // 針對外層 Streamlit 宿主文檔 (穿透 iframe)
+                if (window.parent && window.parent.document) {{
+                    updateIcons(window.parent.document);
+                }}
+                if (window.top && window.top.document) {{
+                    updateIcons(window.top.document);
+                }}
+            }} catch(e) {{
+                console.log("Icon update:", e);
+            }}
         }})();
     </script>
     """, unsafe_allow_html=True)
