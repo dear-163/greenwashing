@@ -125,12 +125,14 @@ class PDFParser:
 
     @staticmethod
     def _clean_text(text: str) -> str:
-        """清洗提取文字中的冗餘空字符與異常符號"""
+        """清洗提取文字中的冗餘空字符與異常符號，徹底移除 Unicode surrogates 避免 UTF-8 編碼失敗"""
         if not text:
             return ""
-        # 移除非法控制字符但保留換行與空格
-        cleaned = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]', '', text)
-        # 合併過度換行與空格
+        # 1. 移除 Unicode surrogates (\ud800-\udfff)
+        text = text.encode("utf-8", "ignore").decode("utf-8", "ignore")
+        # 2. 移除非法控制字符但保留換行與空格
+        cleaned = re.sub(r'[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f\ud800-\udfff]', '', text)
+        # 3. 合併過度換行與空格
         cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
         cleaned = re.sub(r' {2,}', ' ', cleaned)
         return cleaned.strip()

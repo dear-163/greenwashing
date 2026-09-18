@@ -12,9 +12,20 @@ AI-GWRI LLM 自動評分核心流程模組
 """
 
 import os
+import io
+import re
 import json
 import logging
 from typing import List, Dict, Any, Optional, Callable
+
+def sanitize_utf8(text: Any) -> str:
+    """清理文字中的 Unicode Surrogates (\ud800-\udfff)，確保 100% 符合標準 UTF-8 編碼"""
+    if not text:
+        return ""
+    if isinstance(text, str):
+        cleaned = text.encode("utf-8", "ignore").decode("utf-8", "ignore")
+        return re.sub(r'[\ud800-\udfff]', '', cleaned)
+    return str(text)
 
 from models.schema import (
     MaterialityScreeningOutput,
@@ -109,6 +120,9 @@ class AIGWRIScorer:
         user_prompt = f"""請分析以下報告書文字內容，輸出結構化重大性與環境宣稱摘要：
 
 {context_text}"""
+
+        system_prompt = sanitize_utf8(system_prompt)
+        user_prompt = sanitize_utf8(user_prompt)
 
         if not self.is_gemini:
             try:
@@ -207,6 +221,9 @@ class AIGWRIScorer:
 
 請針對構面【{dimension_code}】完成 4 個題項的評分與證據擷取："""
 
+        system_prompt = sanitize_utf8(system_prompt)
+        user_prompt = sanitize_utf8(user_prompt)
+
         if not self.is_gemini:
             try:
                 response = self.client.beta.chat.completions.parse(
@@ -289,6 +306,11 @@ class AIGWRIScorer:
         """
         if not pages_data:
             raise ValueError("傳入的 PDF 頁面資料為空，無法進行評估。")
+
+        # 徹底清洗所有 PDF 頁面文本中的 Unicode Surrogates，確保跨平臺 UTF-8 編碼安全
+        for p in pages_data:
+            if isinstance(p, dict) and "text" in p and p["text"]:
+                p["text"] = sanitize_utf8(p["text"])
 
         if progress_callback:
             progress_callback(0.05, "開始解析報告書重大性議題與核心環境宣稱 (Step 1)...")
