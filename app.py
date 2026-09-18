@@ -379,10 +379,12 @@ if report:
             r_level = report.risk_level
             st.metric(label="漂綠風險等級", value=r_level.split(" ")[0])
         with kpi_col3:
+            v_cnt = getattr(report.quality_metrics, 'valid_count', getattr(report.quality_metrics, 'evaluated_items_count', 28))
+            n_cnt = getattr(report.quality_metrics, 'na_count', getattr(report.quality_metrics, 'na_items_count', 0))
             st.metric(
                 label="可評估題項",
-                value=f"{report.quality_metrics.evaluated_items_count} / 28",
-                delta=f"NA: {report.quality_metrics.na_items_count} 題",
+                value=f"{v_cnt} / 28",
+                delta=f"NA: {n_cnt} 題",
                 delta_color="off"
             )
         with kpi_col4:

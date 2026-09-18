@@ -132,6 +132,14 @@ class QualityMetrics(BaseModel):
         description="總體資料品質等級"
     )
 
+    @property
+    def evaluated_items_count(self) -> int:
+        return self.valid_count
+
+    @property
+    def na_items_count(self) -> int:
+        return self.na_count
+
 
 class AssessmentReport(BaseModel):
     """
