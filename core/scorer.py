@@ -129,15 +129,16 @@ class AIGWRIScorer:
                 err_text = str(e)
                 if "429" in err_text or "RESOURCE_EXHAUSTED" in err_text or "quota" in err_text.lower():
                     logger.warning(f"[{task_name}] 觸發 429 限制 (嘗試 {attempt+1}/{max_retries}): {err_text}")
-                    # 若為 gemini-2.5-flash，切換至每日 1,500 次配額的 gemini-1.5-flash
-                    if "2.5-flash" in current_model:
-                        current_model = "gemini-1.5-flash"
-                        self.model = "gemini-1.5-flash"
-                        if progress_callback:
-                            progress_callback(
-                                current_progress,
-                                "🔄 gemini-2.5-flash 免費配額達上限，自動無縫切換至 gemini-1.5-flash 繼續..."
-                            )
+                    # 解析建議重試時間，若有的話
+                    import re
+                    match = re.search(r"retry in ([\d\.]+)s", err_text, re.IGNORECASE)
+                    retry_delay = float(match.group(1)) if match else (3.5 * (attempt + 1))
+                    if progress_callback:
+                        progress_callback(
+                            current_progress,
+                            f"⏳ 偵測到 API 頻率限制 (429)，自動冷卻 {retry_delay:.1f} 秒後進行第 {attempt+2} 次重試..."
+                        )
+                    time.sleep(retry_delay)
                     continue
                 else:
                     raise e
