@@ -2,16 +2,14 @@ name: Keep Streamlit App Alive
 
 on:
   schedule:
-    # 每天台灣時間 09:00 (UTC+8) = UTC 01:00 自動喚醒
-    - cron: '0 1 * * *'
-    # 每天台灣時間 14:00 (UTC+8) = UTC 06:00 補喚一次
-    - cron: '0 6 * * *'
+    # 每 2 小時自動喚醒一次 (UTC)，涵蓋台灣時區全天
+    - cron: '0 */2 * * *'
   workflow_dispatch:  # 允許手動觸發
 
 jobs:
   wake-up:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
 
     steps:
       - name: Install Playwright
@@ -35,9 +33,10 @@ jobs:
 
                   try:
                       await page.goto(APP_URL, wait_until="domcontentloaded", timeout=60000)
-                      await page.wait_for_timeout(8000)
+                      await page.wait_for_timeout(5000)
 
                       # 嘗試找並點擊喚醒 / Reboot 按鈕
+                      clicked = False
                       for selector in [
                           "button:has-text('Yes, get this app back up!')",
                           "button:has-text('Wake app')",
@@ -49,19 +48,27 @@ jobs:
                               if await btn.count() > 0:
                                   print(f"[KeepAlive] Found button: {selector}, clicking...")
                                   await btn.first.click()
-                                  await page.wait_for_timeout(30000)
+                                  clicked = True
+                                  # 等待 App 完全啟動
+                                  await page.wait_for_timeout(40000)
                                   print("[KeepAlive] App woken up successfully!")
                                   break
                           except Exception:
                               pass
-                      else:
-                          print("[KeepAlive] App is already running, no action needed.")
+
+                      if not clicked:
+                          print("[KeepAlive] App already running, keeping connection alive...")
+                          # 停留 30 秒讓 Streamlit 記錄真實活躍連線
+                          await page.wait_for_timeout(30000)
+                          # 模擬滑動以維持活躍
+                          await page.evaluate("window.scrollTo(0, 100)")
+                          await page.wait_for_timeout(2000)
+                          print("[KeepAlive] Done.")
 
                   except Exception as e:
                       print(f"[KeepAlive] Error: {e}")
                   finally:
                       await browser.close()
-                      print("[KeepAlive] Done.")
 
           asyncio.run(wake_up())
           PYEOF
